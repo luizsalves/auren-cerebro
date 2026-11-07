@@ -1,0 +1,7 @@
+CLAUDE.local.md
+.claude/lint.md
+.claude/ultima-compilacao
+.claude/settings.local.json
+*.env
+.env*
+.claude/rotina.log

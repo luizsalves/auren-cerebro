@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cérebro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#10073A;color:#E9E9F2;font-family:Inter,system-ui,sans-serif}
+a{color:#8BE4F2}a:hover{color:#BFF4FF}
+.app{min-height:100vh;padding:20px 24px 24px;display:flex;flex-direction:column;gap:16px;background:radial-gradient(1200px 760px at 42% 48%,#3A1A9E 0%,#24116F 42%,#10073A 100%)}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:16px}
+.brand{display:flex;align-items:center;gap:10px}
+.word{font:600 21px 'Space Grotesk',Inter,sans-serif;letter-spacing:-.01em;color:#fff}
+.path{font:12px 'JetBrains Mono',monospace;color:#A3A6BD;padding:4px 8px;border:1px solid rgba(255,255,255,.1);border-radius:6px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.search{flex:1 1 260px;max-width:520px;display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:#A3A6BD}
+.search:focus-within{border-color:rgba(79,209,232,.7)}
+.search input{flex:1;min-width:0;background:transparent;border:0;outline:0;color:#fff;font:14px Inter,sans-serif}
+.search input::placeholder{color:#9497B0}
+kbd{font:11px 'JetBrains Mono',monospace;color:#A3A6BD;border:1px solid rgba(255,255,255,.16);border-radius:5px;padding:2px 6px}
+.stats{display:flex;flex-wrap:wrap;align-items:center;gap:16px;font-size:13px;color:#A3A6BD;margin-left:auto}
+.stats b{color:#fff;font-weight:600}
+.live{display:flex;align-items:center;gap:7px}
+.live i{width:8px;height:8px;border-radius:50%;background:#FF8A5B}
+.live.on i{background:#5BE39A;animation:live 2s ease-out infinite}
+@keyframes live{0%{box-shadow:0 0 0 0 rgba(91,227,154,.7)}100%{box-shadow:0 0 0 9px rgba(91,227,154,0)}}
+.btn{height:44px;padding:0 16px;border-radius:12px;border:0;background:#F2F2F7;color:#10073A;font:600 14px Inter,sans-serif;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.btn:hover{background:#fff}
+.btn.ghost{background:rgba(255,255,255,.06);color:#E9E9F2;border:1px solid rgba(255,255,255,.12)}
+.btn.ghost:hover{background:rgba(255,255,255,.12)}
+.main{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
+.stage{flex:999 1 620px;min-width:0;border-radius:20px;border:1px solid rgba(255,255,255,.07);background:rgba(18,8,60,.3);padding:16px;display:flex;flex-direction:column;gap:12px}
+.pills{display:flex;flex-wrap:wrap;gap:8px}
+.pill{height:44px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.04);color:#D6D7E6;font:500 13px Inter,sans-serif;display:flex;align-items:center;gap:8px;cursor:pointer}
+.pill:hover{background:rgba(255,255,255,.08)}
+.pill i{width:8px;height:8px;border-radius:50%;background:var(--c);box-shadow:0 0 10px var(--c)}
+.pill span{color:#9497B0;font-size:12px}
+.pill[aria-pressed="true"]{background:rgba(255,255,255,.12);border-color:var(--c);color:#fff}
+.box{position:relative;width:100%;aspect-ratio:1000/700}
+.box svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.pl{fill:none;stroke:#8F7BFF;stroke-width:.7;opacity:.2}
+.pd{fill:none;stroke:#C9BBFF;stroke-width:3;stroke-linecap:round;opacity:.4}
+.lobelabels text{font:11px 'JetBrains Mono',monospace;letter-spacing:.22em;opacity:.5}
+.base path{fill:none;stroke-width:1.2;opacity:.4;transition:opacity .3s}
+.flow path{fill:none;stroke-width:1.7;stroke-dasharray:2 10;stroke-linecap:round;opacity:.9;animation:flow 2.6s linear infinite;transition:opacity .3s}
+.base path.dim{opacity:.08}.flow path.dim{opacity:.1}circle.dim{opacity:.08}
+@keyframes flow{to{stroke-dashoffset:-48}}
+.node{position:absolute;transform:translate(-50%,-50%);width:44px;height:44px;padding:0;border:0;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:opacity .35s,left .8s,top .8s}
+.node:focus-visible{outline:2px solid #fff;outline-offset:2px;border-radius:50%}
+.core{position:relative;width:var(--s);height:var(--s);border-radius:50%;background:var(--c);box-shadow:0 0 10px var(--c),0 0 26px var(--c),inset 0 0 5px rgba(255,255,255,.85);transition:transform .2s}
+.node:hover .core{transform:scale(1.2)}
+.ring{position:absolute;width:var(--s);height:var(--s);border-radius:50%;border:1.5px solid var(--c);animation:pulse 2.8s ease-out infinite;animation-delay:var(--d)}
+@keyframes pulse{0%{transform:scale(1);opacity:.75}100%{transform:scale(2.7);opacity:0}}
+.lbl{position:absolute;top:calc(50% + var(--s) / 2 + 5px);left:50%;transform:translateX(-50%);white-space:nowrap;font-size:11px;color:#D2D3E6;pointer-events:none;text-shadow:0 0 3px #12083F,0 1px 8px #12083F;transition:opacity .2s}
+.hub .lbl{font-size:12.5px;color:#fff;font-weight:600}
+.sel .ring{border-width:2px;animation-duration:1.5s}
+.sel .core{outline:2px solid #fff;outline-offset:5px}
+.sel .lbl{color:#fff;font-weight:600}
+.stale .lbl::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:#FF8A5B;margin-right:5px;vertical-align:1px}
+.nolbl .lbl{opacity:0}.nolbl:hover .lbl,.nolbl:focus-visible .lbl{opacity:1}
+.flash .core{animation:flash 1.2s ease-out 2}
+@keyframes flash{0%{transform:scale(2.2);box-shadow:0 0 30px #fff,0 0 60px var(--c)}100%{transform:scale(1)}}
+.vazio{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:#C9CBE0;font-size:15px;line-height:1.6;padding:24px}
+.foot{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;font:12px 'JetBrains Mono',monospace;color:#A3A6BD}
+.foot .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#FF8A5B;margin-right:6px}
+.foot .sair{margin-left:auto;color:#A3A6BD}
+.panel{flex:1 1 330px;min-width:0;border-radius:20px;padding:24px;background:rgba(36,20,100,.5);border:1px solid rgba(255,255,255,.09);backdrop-filter:blur(18px);display:flex;flex-direction:column;gap:14px;position:sticky;top:20px;max-height:calc(100vh - 40px);overflow:auto}
+.kick{display:inline-flex;align-self:flex-start;align-items:center;gap:8px;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--c);padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
+.kick i{width:7px;height:7px;border-radius:50%;background:var(--c);box-shadow:0 0 8px var(--c)}
+.panel h2{margin:0;font:600 28px 'Space Grotesk',Inter,sans-serif;letter-spacing:-.02em;color:#fff;overflow-wrap:anywhere}
+.mono{font:12px 'JetBrains Mono',monospace;color:#A3A6BD;overflow-wrap:anywhere}
+.meta{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:#A3A6BD}
+.warn{font-size:13px;color:#FFBFA6;background:rgba(255,138,91,.1);border:1px solid rgba(255,138,91,.28);border-radius:10px;padding:10px 12px}
+.fm{display:flex;flex-wrap:wrap;gap:6px}
+.fm span{font:11px 'JetBrains Mono',monospace;color:#C9CBE0;padding:4px 8px;border-radius:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)}
+.md{font-size:15px;line-height:1.6;color:#DCDDEA;overflow-wrap:anywhere}
+.md h1,.md h2,.md h3,.md h4{font-family:'Space Grotesk',Inter,sans-serif;color:#fff;margin:18px 0 6px;line-height:1.25}
+.md h1{font-size:20px}.md h2{font-size:18px}.md h3,.md h4{font-size:16px}
+.md p{margin:0 0 10px}.md ul,.md ol{margin:0 0 10px;padding-left:20px}.md li{margin:2px 0}
+.md code{font:12.5px 'JetBrains Mono',monospace;background:rgba(255,255,255,.08);padding:1px 5px;border-radius:5px}
+.md pre{background:rgba(0,0,0,.25);padding:12px;border-radius:10px;overflow:auto}.md pre code{background:none;padding:0}
+.md blockquote{margin:0 0 10px;padding-left:12px;border-left:2px solid rgba(201,187,255,.5);color:#C9CBE0}
+.md hr{border:0;border-top:1px solid rgba(255,255,255,.1);margin:14px 0}
+.wl{font:inherit;color:#8BE4F2;background:rgba(79,209,232,.1);border:0;border-radius:5px;padding:0 5px;cursor:pointer}
+.wl.quebrado{color:#FFBFA6;background:rgba(255,138,91,.1);cursor:default}
+.sec{font:600 11px 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:#9497B0;margin-top:6px}
+.links{display:flex;flex-direction:column;gap:6px}
+.link{min-height:44px;display:flex;align-items:center;gap:10px;padding:0 12px;border-radius:10px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.04);color:#E9E9F2;font:500 13px Inter,sans-serif;cursor:pointer;text-align:left}
+.link:hover{background:rgba(255,255,255,.09)}
+.link i{width:8px;height:8px;border-radius:50%;background:var(--c);box-shadow:0 0 8px var(--c);flex:none}
+.link .ln{flex:1}.link .lw{font:11px 'JetBrains Mono',monospace;color:#9497B0}
+.nada{font-size:13px;color:#9497B0}
+dialog{width:min(560px,calc(100vw - 32px));border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:22px;background:#1E1060;color:#E9E9F2}
+dialog::backdrop{background:rgba(8,3,30,.6);backdrop-filter:blur(4px)}
+dialog h3{margin:0 0 4px;font:600 20px 'Space Grotesk',Inter,sans-serif}
+dialog p{margin:0 0 12px;font-size:13px;color:#A3A6BD}
+dialog textarea{width:100%;min-height:160px;resize:vertical;border-radius:12px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#fff;font:14px/1.5 Inter,sans-serif;padding:12px;outline:0}
+dialog textarea:focus{border-color:#4FD1E8}
+.acoes{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#F2F2F7;color:#10073A;font:500 14px Inter,sans-serif;padding:12px 16px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .25s}
+.toast.on{opacity:1}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+@media (max-width:700px){.app{padding:14px}.lbl{font-size:9px}.hub .lbl{font-size:10px}.lobelabels{display:none}.panel{position:static;max-height:none}.panel h2{font-size:24px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#C9BBFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 3.5a3 3 0 0 0-3 3 3 3 0 0 0-2.5 4.5A3 3 0 0 0 5 16a3 3 0 0 0 4.5 3 2.5 2.5 0 0 0 2.5-1V5.5a2.5 2.5 0 0 0-2.5-2z"/><path d="M14.5 3.5a3 3 0 0 1 3 3 3 3 0 0 1 2.5 4.5A3 3 0 0 1 19 16a3 3 0 0 1-4.5 3 2.5 2.5 0 0 1-2.5-1"/><path d="M9 9h1.5M14.5 12H13M9 14.5h1.5"/></svg>
+      <span class="word">cérebro</span>
+      <span class="path" id="raiz"></span>
+    </div>
+    <div class="search">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <label for="busca" class="sr">Buscar no cérebro</label>
+      <input id="busca" type="search" placeholder="Buscar no cérebro…" autocomplete="off">
+      <kbd>Ctrl K</kbd>
+    </div>
+    <div class="stats">
+      <span><b id="nNotas">0</b> notas</span>
+      <span><b id="nSin">0</b> sinapses</span>
+      <span class="live" id="live"><i></i><span id="liveTxt">Conectando…</span></span>
+    </div>
+    <button class="btn" id="btnCapturar" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      Capturar
+    </button>
+  </header>
+
+  <main class="main">
+    <section class="stage" aria-label="Mapa do cérebro">
+      <div class="pills" id="pills" role="group" aria-label="Filtrar por lobo"></div>
+      <div class="box" id="box">
+        <svg id="svg" viewBox="0 0 1000 700" aria-hidden="true"></svg>
+        <div id="nos"></div>
+      </div>
+      <div class="foot">
+        <span id="compilacao"></span>
+        <span id="lint"></span>
+        <a class="sair" href="/sair">sair</a>
+      </div>
+    </section>
+
+    <aside class="panel" id="panel" aria-label="Nota selecionada" aria-live="polite"></aside>
+  </main>
+</div>
+
+<dialog id="dlg">
+  <form method="dialog" id="formCap">
+    <h3>Capturar</h3>
+    <p>Vai para <code>raw/</code> com data e hora. O <code>/compilar</code> organiza depois.</p>
+    <label for="txtCap" class="sr">Texto</label>
+    <textarea id="txtCap" placeholder="Ideia, decisão, anotação de reunião… (Ctrl+Enter salva)"></textarea>
+    <div class="acoes">
+      <button class="btn ghost" value="cancelar" type="submit" formnovalidate>Cancelar</button>
+      <button class="btn" id="btnSalvar" type="button">Salvar</button>
+    </div>
+  </form>
+</dialog>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+'use strict';
+const LOBOS = {
+  frontal:   { nome: 'Frontal',   o: 'projetos',   cor: '#F5B04A', c: [330, 280] },
+  parietal:  { nome: 'Parietal',  o: 'notas',      cor: '#4FD1E8', c: [660, 220] },
+  temporal:  { nome: 'Temporal',  o: 'clientes',   cor: '#E879D9', c: [470, 500] },
+  occipital: { nome: 'Occipital', o: 'diário',     cor: '#5BE39A', c: [840, 360] },
+  cerebelo:  { nome: 'Cerebelo',  o: 'raw',        cor: '#93A4D6', c: [740, 560] },
+  tronco:    { nome: 'Tronco',    o: 'identidade', cor: '#F2F2F7', c: [600, 640] },
+};
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const stemDe = (s) => String(s).split('/').pop().replace(/\.md$/i, '').trim().toLowerCase();
+
+let grafo = null, pos = new Map(), sel = null, filtro = 'todos', busca = '', notaAberta = null;
+let vizinhos = new Map(), porStem = new Map(), porId = new Map();
+
+function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967295; }
+
+// ---------- Layout: forças simples, agrupadas por lobo ----------
+function layout() {
+  const nos = grafo.nos, n = nos.length, idx = new Map(nos.map((x, i) => [x.id, i]));
+  const primeira = pos.size === 0;
+  let temNovo = false;
+  const P = nos.map((x) => {
+    const p = pos.get(x.id);
+    if (p) return { x: p.x, y: p.y, novo: false };
+    temNovo = true;
+    const c = LOBOS[x.lobo].c, a = hash(x.id) * 6.283, r = 15 + hash(x.id + 'r') * 70;
+    return { x: c[0] + Math.cos(a) * r, y: c[1] + Math.sin(a) * r, novo: true };
+  });
+  const iters = primeira ? (n > 400 ? 120 : 300) : (temNovo ? 90 : 0);
+  const L = Math.max(36, Math.min(88, 820 / Math.sqrt(n + 1)));
+  const rep = L * L * 0.9;
+  for (let it = 0; it < iters; it++) {
+    const t = 1 - it / iters, F = P.map(() => ({ x: 0, y: 0 }));
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+      let dx = P[i].x - P[j].x, dy = P[i].y - P[j].y;
+      const d2 = dx * dx + dy * dy + 0.01;
+      if (n > 300 && d2 > 90000) continue;
+      const d = Math.sqrt(d2), f = rep / d2; dx /= d; dy /= d;
+      F[i].x += dx * f; F[i].y += dy * f; F[j].x -= dx * f; F[j].y -= dy * f;
+    }
+    for (const [a, b] of grafo.arestas) {
+      const i = idx.get(a), j = idx.get(b);
+      let dx = P[j].x - P[i].x, dy = P[j].y - P[i].y;
+      const d = Math.hypot(dx, dy) || 1, f = (d - L) * 0.06; dx /= d; dy /= d;
+      F[i].x += dx * f; F[i].y += dy * f; F[j].x -= dx * f; F[j].y -= dy * f;
+    }
+    for (let i = 0; i < n; i++) {
+      const c = LOBOS[nos[i].lobo].c;
+      F[i].x += (c[0] - P[i].x) * 0.02; F[i].y += (c[1] - P[i].y) * 0.02;
+      const fl = Math.hypot(F[i].x, F[i].y) || 1;
+      let m = Math.min(28 * t + 2, fl);
+      if (!primeira && !P[i].novo) m *= 0.25;
+      P[i].x += F[i].x / fl * m;
+      P[i].y += F[i].y / fl * m;
+      if (!primeira) { P[i].x = Math.max(50, Math.min(950, P[i].x)); P[i].y = Math.max(45, Math.min(655, P[i].y)); }
+    }
+  }
+  if (primeira && n > 1) {
+    // estica o grafo para ocupar a área toda
+    const xs = P.map((p) => p.x), ys = P.map((p) => p.y);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const sx = (x1 - x0) || 1, sy = (y1 - y0) || 1;
+    for (const p of P) { p.x = 80 + (p.x - x0) / sx * 840; p.y = 70 + (p.y - y0) / sy * 560; }
+  }
+  pos = new Map(nos.map((x, i) => [x.id, { x: P[i].x, y: P[i].y }]));
+}
+
+// ---------- Desenho ----------
+let plexus = '';
+function gerarPlexus() {
+  let s = 1; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  const pts = Array.from({ length: 70 }, () => [rnd() * 1080 - 40, rnd() * 780 - 40]);
+  let linhas = '', pontos = '';
+  for (const p of pts) {
+    const perto = pts.map((q) => [Math.hypot(p[0] - q[0], p[1] - q[1]), q]).sort((a, b) => a[0] - b[0]).slice(1, 3);
+    for (const [, q] of perto) linhas += `M${p[0] | 0} ${p[1] | 0}L${q[0] | 0} ${q[1] | 0}`;
+    pontos += `M${p[0] | 0} ${p[1] | 0}h0.01`;
+  }
+  plexus = `<path class="pl" d="${linhas}"/><path class="pd" d="${pontos}"/>`;
+}
+
+function curva(a, b) {
+  const p = pos.get(a), q = pos.get(b);
+  const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2, dx = q.x - p.x, dy = q.y - p.y;
+  const k = 0.18 * (hash(a + b) > 0.5 ? 1 : -1);
+  return `M${p.x.toFixed(1)} ${p.y.toFixed(1)} Q${(mx - dy * k).toFixed(1)} ${(my + dx * k).toFixed(1)} ${q.x.toFixed(1)} ${q.y.toFixed(1)}`;
+}
+
+function desenhar(mudados = []) {
+  const nos = grafo.nos;
+  const defs = [], nebs = [], base = [], flow = [], parts = [];
+  // nebulosas por lobo (no centro real do grupo)
+  for (const [k, L] of Object.entries(LOBOS)) {
+    const membros = nos.filter((n) => n.lobo === k).map((n) => pos.get(n.id));
+    if (!membros.length) continue;
+    const cx = membros.reduce((s, p) => s + p.x, 0) / membros.length, cy = membros.reduce((s, p) => s + p.y, 0) / membros.length;
+    const rx = Math.max(70, Math.max(...membros.map((p) => Math.abs(p.x - cx))) + 60), ry = Math.max(55, Math.max(...membros.map((p) => Math.abs(p.y - cy))) + 50);
+    defs.push(`<radialGradient id="t-${k}"><stop offset="0" stop-color="${L.cor}" stop-opacity="${k === 'tronco' ? '.12' : '.26'}"/><stop offset="1" stop-color="${L.cor}" stop-opacity="0"/></radialGradient>`);
+    nebs.push(`<ellipse cx="${cx.toFixed(0)}" cy="${cy.toFixed(0)}" rx="${rx.toFixed(0)}" ry="${ry.toFixed(0)}" fill="url(#t-${k})"/>`);
+    const minX = Math.min(...membros.map((p) => p.x)), minY = Math.min(...membros.map((p) => p.y));
+    nebs.push(`<text x="${Math.max(8, minX - 10).toFixed(0)}" y="${Math.max(14, minY - 24).toFixed(0)}" fill="${L.cor}">${L.nome.toUpperCase()}</text>`);
+  }
+  grafo.arestas.forEach(([a, b], i) => {
+    const p = pos.get(a), q = pos.get(b);
+    const ca = LOBOS[porId.get(a).lobo].cor, cb = LOBOS[porId.get(b).lobo].cor;
+    defs.push(`<linearGradient id="g${i}" gradientUnits="userSpaceOnUse" x1="${p.x | 0}" y1="${p.y | 0}" x2="${q.x | 0}" y2="${q.y | 0}"><stop offset="0" stop-color="${ca}"/><stop offset="1" stop-color="${cb}"/></linearGradient>`);
+    const d = curva(a, b);
+    base.push(`<path data-a="${i}" d="${d}" stroke="url(#g${i})"/>`);
+    flow.push(`<path data-a="${i}" style="animation-delay:-${((i * 0.37) % 3).toFixed(2)}s" d="${d}" stroke="url(#g${i})"/>`);
+    if (i % 2 === 0 && parts.length < 40) {
+      const dur = 2.4 + (i % 5) * 0.6;
+      parts.push(`<circle data-a="${i}" r="2.6" fill="#fff"><animateMotion dur="${dur.toFixed(1)}s" begin="-${((i * 0.41) % dur).toFixed(2)}s" repeatCount="indefinite" path="${d}"/></circle>`);
+    }
+  });
+  $('svg').innerHTML = `<defs><filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <radialGradient id="halo"><stop offset="0" stop-color="#7B4DFF" stop-opacity=".3"/><stop offset="1" stop-color="#7B4DFF" stop-opacity="0"/></radialGradient>${defs.join('')}</defs>
+    <g>${plexus}</g><ellipse cx="520" cy="370" rx="480" ry="330" fill="url(#halo)"/>
+    <g class="lobelabels">${nebs.join('')}</g>
+    <g class="base">${base.join('')}</g><g class="flow">${flow.join('')}</g>
+    <g filter="url(#glow)">${parts.join('')}</g>`;
+
+  // limiar de rótulos: no máximo ~45 visíveis
+  const graus = nos.map((n) => n.grau).sort((a, b) => b - a);
+  const limiar = graus.length > 45 ? Math.max(1, graus[44]) : 0;
+  const hub = graus.length ? Math.max(4, graus[Math.min(graus.length - 1, 5)]) : 99;
+  const muda = new Set(mudados);
+  $('nos').innerHTML = nos.map((n, i) => {
+    const p = pos.get(n.id), L = LOBOS[n.lobo];
+    const s = Math.min(26, 9 + n.grau * 2.1);
+    const cls = ['node', n.grau >= hub ? 'hub' : '', n.wiki && n.dias > grafo.diasParado ? 'stale' : '', muda.has(n.id) ? 'flash' : ''].join(' ');
+    return `<button type="button" class="${cls}" data-i="${i}" data-nl="${n.grau < limiar ? 1 : 0}" aria-label="${esc(n.label + ', lobo ' + L.nome + ' (' + L.o + ')')}"
+      style="left:${(p.x / 10).toFixed(2)}%;top:${(p.y / 7).toFixed(2)}%;--c:${L.cor};--s:${s.toFixed(1)}px;--d:-${(hash(n.id) * 2.8).toFixed(2)}s">
+      <span class="ring"></span><span class="core"></span><span class="lbl">${esc(n.label)}</span></button>`;
+  }).join('') || `<div class="vazio">Cérebro vazio.<br>Crie arquivos .md em <code>${esc(grafo.raiz)}</code> ou use <b>Capturar</b>.</div>`;
+  aplicarRealce();
+}
+
+function aplicarRealce() {
+  if (!grafo) return;
+  const viz = new Set(sel ? [sel, ...(vizinhos.get(sel) || [])] : []);
+  const q = busca.trim().toLowerCase();
+  document.querySelectorAll('#nos .node').forEach((el) => {
+    const n = grafo.nos[+el.dataset.i];
+    let op = !sel || viz.has(n.id) ? 1 : 0.42;
+    if (filtro !== 'todos' && n.lobo !== filtro) op = 0.1;
+    if (q && !(n.label.toLowerCase().includes(q) || n.titulo.toLowerCase().includes(q) || n.id.toLowerCase().includes(q))) op = Math.min(op, 0.1);
+    el.style.opacity = op;
+    el.classList.toggle('sel', n.id === sel);
+    el.classList.toggle('nolbl', el.dataset.nl === '1' && !viz.has(n.id));
+  });
+  document.querySelectorAll('.base path, .flow path, circle[data-a]').forEach((el) => {
+    const [a, b] = grafo.arestas[+el.dataset.a];
+    const ativo = (!sel || a === sel || b === sel) && (filtro === 'todos' || porId.get(a).lobo === filtro || porId.get(b).lobo === filtro);
+    el.classList.toggle('dim', !ativo);
+  });
+  document.querySelectorAll('#pills .pill').forEach((el) => el.setAttribute('aria-pressed', String(el.dataset.l === filtro)));
+}
+
+function montarPills() {
+  const cont = {}; grafo.nos.forEach((n) => (cont[n.lobo] = (cont[n.lobo] || 0) + 1));
+  const itens = [['todos', 'Todos', String(grafo.nos.length), '#C9CBE0'], ...Object.entries(LOBOS).map(([k, L]) => [k, L.nome, L.o + ' · ' + (cont[k] || 0), L.cor])];
+  $('pills').innerHTML = itens.map(([k, nome, o, cor]) =>
+    `<button type="button" class="pill" data-l="${k}" style="--c:${cor}" aria-pressed="${k === filtro}"><i></i>${nome}<span>${esc(o)}</span></button>`).join('');
+}
+
+// ---------- Painel lateral ----------
+function rel(d) { return d <= 0 ? 'hoje' : d === 1 ? 'ontem' : 'há ' + d + ' dias'; }
+
+function inline(s) {
+  s = esc(s);
+  const codes = [];
+  s = s.replace(/`([^`]+)`/g, (m, c) => { codes.push(c); return `\u0000${codes.length - 1}\u0000`; });
+  s = s.replace(/\[\[([^\]|#]+)(?:[#|]([^\]]*))?\]\]/g, (m, a, b) => {
+    const ok = porStem.has(stemDe(a));
+    return `<button type="button" class="wl${ok ? '' : ' quebrado'}" data-stem="${a}">${b || a}</button>`;
+  });
+  s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, t, u) => {
+    if (/^https?:\/\/|^mailto:/i.test(u)) return `<a href="${u}" target="_blank" rel="noopener noreferrer">${t}</a>`;
+    if (/\.md(#.*)?$/i.test(u)) { const st = u.replace(/#.*$/, ''); return `<button type="button" class="wl${porStem.has(stemDe(st)) ? '' : ' quebrado'}" data-stem="${st}">${t}</button>`; }
+    return t;
+  });
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/(^|[^*])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>').replace(/(^|\s)_([^_]+)_(?=\s|$|[.,;:!?])/g, '$1<em>$2</em>');
+  return s.replace(/\u0000(\d+)\u0000/g, (m, i) => `<code>${codes[+i]}</code>`);
+}
+
+function markdown(md) {
+  const linhas = md.replace(/\r/g, '').split('\n');
+  let html = '', para = [], lista = null, i = 0;
+  const fechaPara = () => { if (para.length) { html += `<p>${inline(para.join(' '))}</p>`; para = []; } };
+  const fechaLista = () => { if (lista) { html += `</${lista}>`; lista = null; } };
+  while (i < linhas.length) {
+    const l = linhas[i];
+    if (/^```/.test(l)) {
+      fechaPara(); fechaLista(); const buf = []; i++;
+      while (i < linhas.length && !/^```/.test(linhas[i])) buf.push(linhas[i++]);
+      html += `<pre><code>${esc(buf.join('\n'))}</code></pre>`; i++; continue;
+    }
+    let m;
+    if ((m = l.match(/^(#{1,6})\s+(.*)$/))) { fechaPara(); fechaLista(); const n = Math.min(4, m[1].length); html += `<h${n}>${inline(m[2])}</h${n}>`; }
+    else if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(l)) { fechaPara(); fechaLista(); html += '<hr>'; }
+    else if ((m = l.match(/^\s*[-*+]\s+(?:\[( |x)\]\s+)?(.*)$/i))) { fechaPara(); if (lista !== 'ul') { fechaLista(); html += '<ul>'; lista = 'ul'; } html += `<li>${m[1] ? (m[1].toLowerCase() === 'x' ? '☑ ' : '☐ ') : ''}${inline(m[2])}</li>`; }
+    else if ((m = l.match(/^\s*\d+[.)]\s+(.*)$/))) { fechaPara(); if (lista !== 'ol') { fechaLista(); html += '<ol>'; lista = 'ol'; } html += `<li>${inline(m[1])}</li>`; }
+    else if ((m = l.match(/^>\s?(.*)$/))) { fechaPara(); fechaLista(); html += `<blockquote>${inline(m[1])}</blockquote>`; }
+    else if (!l.trim()) { fechaPara(); fechaLista(); }
+    else { fechaLista(); para.push(l.trim()); }
+    i++;
+  }
+  fechaPara(); fechaLista();
+  return html;
+}
+
+async function abrir(id, rolar) {
+  sel = id; aplicarRealce();
+  const n = porId.get(id); if (!n) return;
+  const L = LOBOS[n.lobo];
+  const viz = [...(vizinhos.get(id) || [])].map((v) => porId.get(v)).sort((a, b) => b.grau - a.grau);
+  let nota = { fm: {}, md: '' };
+  try { const r = await fetch('/api/nota?id=' + encodeURIComponent(id)); if (r.status === 401) return location.reload(); if (r.ok) nota = await r.json(); } catch {}
+  if (sel !== id) return;
+  notaAberta = id;
+  const fm = Object.entries(nota.fm || {}).filter(([k]) => !['title', 'titulo'].includes(k)).slice(0, 8);
+  const parado = n.wiki && n.dias > grafo.diasParado;
+  $('panel').innerHTML = `
+    <div class="kick" style="--c:${L.cor}"><i></i>${L.nome} · ${L.o}</div>
+    <h2>${esc(n.titulo)}</h2>
+    <div class="mono">${esc(n.id)}</div>
+    <div class="meta"><span>Atualizado ${rel(n.dias)}</span><span>${viz.length} ${viz.length === 1 ? 'conexão' : 'conexões'}</span></div>
+    ${parado ? `<div class="warn">Sem atualização há ${n.dias} dias. O /lint vai sinalizar.</div>` : ''}
+    ${fm.length ? `<div class="fm">${fm.map(([k, v]) => `<span>${esc(k)}: ${esc(v)}</span>`).join('')}</div>` : ''}
+    <div class="md">${markdown((nota.md || '').replace(/^\s*#\s+(.+)\n?/, (m, t) => t.trim().toLowerCase() === n.titulo.toLowerCase() ? '' : m)) || '<p class="nada">Nota vazia.</p>'}</div>
+    <div class="sec">Conexões</div>
+    <div class="links">${viz.map((v) => `<button type="button" class="link" data-id="${esc(v.id)}" style="--c:${LOBOS[v.lobo].cor}"><i></i><span class="ln">${esc(v.label)}</span><span class="lw">${LOBOS[v.lobo].o}</span></button>`).join('') || '<div class="nada">Sem conexões ainda. Use [[nome-da-nota]] para ligar.</div>'}</div>
+    <div class="sec">Comandos no Claude Code</div>
+    <div class="fm"><span>/capturar</span><span>/compilar</span><span>/revisao-semanal</span><span>/lint</span></div>`;
+  if (rolar) $('panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ---------- Dados ----------
+async function carregar(mudados = []) {
+  const r = await fetch('/api/grafo');
+  if (r.status === 401) return location.reload();
+  grafo = await r.json();
+  porId = new Map(grafo.nos.map((n) => [n.id, n]));
+  porStem = new Map(); grafo.nos.forEach((n) => { const s = stemDe(n.id); if (!porStem.has(s)) porStem.set(s, n.id); });
+  vizinhos = new Map(grafo.nos.map((n) => [n.id, new Set()]));
+  grafo.arestas.forEach(([a, b]) => { vizinhos.get(a).add(b); vizinhos.get(b).add(a); });
+  $('raiz').textContent = grafo.raiz; $('raiz').title = grafo.raiz;
+  $('nNotas').textContent = grafo.nos.length;
+  $('nSin').textContent = grafo.arestas.length;
+  $('compilacao').textContent = 'Próxima compilação · ' + grafo.compilacao;
+  $('lint').innerHTML = grafo.parados ? `<span class="dot"></span>Lint: ${grafo.parados} ${grafo.parados === 1 ? 'página parada' : 'páginas paradas'} há +${grafo.diasParado} dias` : 'Lint: tudo em dia';
+  layout(); montarPills(); desenhar(mudados);
+  if (sel && !porId.has(sel)) sel = null;
+  if (!sel && grafo.nos.length) sel = [...grafo.nos].sort((a, b) => b.grau - a.grau)[0].id;
+  if (sel && (notaAberta !== sel || mudados.includes(sel) || mudados.some((m) => (vizinhos.get(sel) || new Set()).has(m)))) abrir(sel);
+  else aplicarRealce();
+  if (!grafo.nos.length) $('panel').innerHTML = '<div class="nada">Nenhuma nota ainda.</div>';
+}
+
+// ---------- Ao vivo ----------
+function conectar() {
+  const es = new EventSource('/api/eventos');
+  es.onopen = () => { $('live').classList.add('on'); $('liveTxt').textContent = 'Ao vivo'; };
+  es.onerror = () => { $('live').classList.remove('on'); $('liveTxt').textContent = 'Reconectando…'; };
+  es.addEventListener('mudou', (e) => { let m = []; try { m = JSON.parse(e.data); } catch {} carregar(m); });
+}
+
+function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 2600); }
+
+// ---------- Eventos ----------
+$('nos').addEventListener('click', (e) => { const b = e.target.closest('.node'); if (b) abrir(grafo.nos[+b.dataset.i].id, window.innerWidth < 900); });
+$('pills').addEventListener('click', (e) => { const b = e.target.closest('.pill'); if (!b) return; filtro = b.dataset.l === filtro && filtro !== 'todos' ? 'todos' : b.dataset.l; aplicarRealce(); });
+$('panel').addEventListener('click', (e) => {
+  const l = e.target.closest('.link'); if (l) return abrir(l.dataset.id);
+  const w = e.target.closest('.wl'); if (w && !w.classList.contains('quebrado')) { const id = porStem.get(stemDe(w.dataset.stem)); if (id) abrir(id); }
+});
+$('busca').addEventListener('input', (e) => { busca = e.target.value; aplicarRealce(); });
+$('busca').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { e.target.value = ''; busca = ''; aplicarRealce(); }
+  if (e.key === 'Enter' && busca.trim()) {
+    const q = busca.trim().toLowerCase();
+    const n = grafo.nos.filter((n) => n.label.toLowerCase().includes(q) || n.titulo.toLowerCase().includes(q)).sort((a, b) => (a.label.toLowerCase().startsWith(q) ? -1 : 0) - (b.label.toLowerCase().startsWith(q) ? -1 : 0) || b.grau - a.grau)[0];
+    if (n) abrir(n.id, window.innerWidth < 900);
+  }
+});
+document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); $('busca').focus(); $('busca').select(); } });
+
+$('btnCapturar').addEventListener('click', () => { $('txtCap').value = ''; $('dlg').showModal(); $('txtCap').focus(); });
+async function salvarCaptura() {
+  const texto = $('txtCap').value.trim();
+  if (!texto) return $('txtCap').focus();
+  $('btnSalvar').disabled = true;
+  try {
+    const r = await fetch('/api/capturar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texto }) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.erro || 'falhou');
+    $('dlg').close(); toast('Salvo em ' + j.id);
+  } catch (err) { toast('Não salvou: ' + err.message); }
+  finally { $('btnSalvar').disabled = false; }
+}
+$('btnSalvar').addEventListener('click', salvarCaptura);
+$('txtCap').addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') salvarCaptura(); });
+
+gerarPlexus();
+carregar().then(conectar).catch((e) => { $('panel').innerHTML = '<div class="warn">Não consegui ler o cérebro.</div>'; console.error(e); });
+</script>
+</body>
+</html>
