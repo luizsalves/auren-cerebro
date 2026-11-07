@@ -3,6 +3,8 @@
 Segundo cérebro com Claude Code numa VPS: arquivos `.md` que o Claude lê e mantém,
 compilação automática toda noite e um painel web ao vivo com o grafo das notas.
 
+![Painel do cérebro](docs/painel.png)
+
 ## Instalar na VPS
 
 ```bash
