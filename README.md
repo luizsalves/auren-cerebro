@@ -49,7 +49,7 @@ As suas notas nunca são sobrescritas.
     ├── rules/                  raw.md, wiki.md, pessoas.md (carregam por pasta)
     ├── skills/                 capturar, compilar, revisao-semanal, lint, entrevista
     ├── hooks/                  inicio.sh, protege.js, salvar.sh
-    └── scripts/                lint.js, rotina.sh, guarda-raw.sh
+    └── scripts/                lint.js, rotina.sh, guarda-raw.sh, ligar-projetos.sh
 
 /opt/cerebro-painel/            ← painel web (Node, sem dependências)
 /etc/cerebro-painel.env         ← senha e configuração (só root lê)
@@ -71,10 +71,25 @@ As suas notas nunca são sobrescritas.
 - **PreToolUse** (`protege.js`): bloqueia editar arquivo existente em `raw/`.
 - **Stop** (`salvar.sh`): restaura `raw/` se algo foi alterado e faz commit (histórico e backup).
 
+### Projetos da VPS
+
+`ligar-projetos.sh` lê as pastas `/opt/projetos` e `/opt/saas` (menos `secrets`) e, para cada
+projeto: cria ou atualiza `wiki/projetos/<nome>.md` com um bloco **Na VPS** (caminho, stack,
+git, última atividade, resumo do README), mantém o hub `wiki/notas/projetos-vps.md`, o
+`_indice.md`, a tabela **Projetos na VPS** no `CLAUDE.md` e libera as pastas em
+`permissions.additionalDirectories` para o Claude Code ler o código. O inventário entra em
+`raw/` só quando algo muda. Páginas que você já escreveu são mantidas; só o bloco entre as
+marcas `vps:inicio`/`vps:fim` é reescrito.
+
+Roda no instalador e todo domingo 18:30. Na mão:
+`bash /root/cerebro/.claude/scripts/ligar-projetos.sh`
+(outras pastas: `PASTAS="/opt/projetos /srv/apps" EXCLUIR="secrets tmp" bash ...`).
+
 ### Rotinas (cron, horário do servidor)
 
 | Quando | O quê | Modelo |
 |---|---|---|
+| domingo 18:30 | `ligar-projetos.sh` (sem IA) | — |
 | todo dia 23:30 | `/compilar` | haiku (barato) |
 | domingo 19:00 | lint (sem IA) | — |
 | domingo 20:00 | `/revisao-semanal` | sonnet |

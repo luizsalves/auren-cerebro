@@ -154,12 +154,19 @@ HOME=/root
 30 23 * * *  root  bash $CEREBRO_DIR/.claude/scripts/rotina.sh compilar
 0 20 * * 0   root  bash $CEREBRO_DIR/.claude/scripts/rotina.sh revisao
 0 19 * * 0   root  bash $CEREBRO_DIR/.claude/scripts/rotina.sh lint
+30 18 * * 0  root  bash $CEREBRO_DIR/.claude/scripts/ligar-projetos.sh >> $CEREBRO_DIR/.claude/rotina.log 2>&1
 EOF
 chmod 644 /etc/cron.d/cerebro
-verde "compilar 23:30 todo dia · lint e revisão domingo 19:00/20:00"
+verde "compilar 23:30 todo dia · domingo: ligar-projetos 18:30, lint 19:00, revisão 20:00"
 [ -x "$CLAUDE_BIN" ] || amarelo "Claude Code não encontrado. Instale com: curl -fsSL https://claude.ai/install.sh | bash  (e faça login rodando: claude)"
 TZ_ATUAL=$(timedatectl show -p Timezone --value 2>/dev/null || echo "?")
 [ "$TZ_ATUAL" = "America/Sao_Paulo" ] || amarelo "Fuso do servidor: $TZ_ATUAL. Para horário de Brasília: timedatectl set-timezone America/Sao_Paulo"
+
+# ---------- 7. Projetos da VPS ----------
+if [ -d /opt/projetos ] || [ -d /opt/saas ]; then
+  passo "Ligando os projetos de /opt/projetos e /opt/saas ao cérebro"
+  bash "$CEREBRO_DIR/.claude/scripts/ligar-projetos.sh" || amarelo "ligar-projetos falhou (rode depois: bash $CEREBRO_DIR/.claude/scripts/ligar-projetos.sh)"
+fi
 
 # ---------- Pronto ----------
 IP=$(curl -fsS -4 --max-time 4 https://ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
