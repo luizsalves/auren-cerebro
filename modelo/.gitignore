@@ -5,3 +5,6 @@ CLAUDE.local.md
 *.env
 .env*
 .claude/rotina.log
+.claude/deploy/logs/
+.claude/deploy/estado.json
+.claude/ultimo-inventario-vps

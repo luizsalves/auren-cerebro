@@ -7,6 +7,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { spawn } = require('child_process');
 
 // ---------- Configuração (variáveis de ambiente) ----------
 const CEREBRO = path.resolve(process.env.CEREBRO_DIR || path.join(__dirname, '..'));
@@ -17,6 +18,8 @@ const SEGREDO = process.env.PAINEL_SEGREDO ||
   crypto.createHash('sha256').update('cerebro:' + SENHA + ':' + CEREBRO).digest('hex');
 const COMPILACAO = process.env.PROXIMA_COMPILACAO || '23:30';
 const DIAS_PARADO = Number(process.env.DIAS_PARADO) || 30;
+const AGENTE_TOKEN = process.env.AGENTE_TOKEN || '';          // token do agente (máquina Windows)
+const AGENTE_EXPIRA_MIN = Number(process.env.AGENTE_EXPIRA_MIN) || 15; // deploy pendente expira se a máquina estiver desligada
 
 // Pastas/arquivos que não entram no grafo
 const IGNORAR_PASTAS = new Set(['.git', 'node_modules', 'painel', '_arquivo', '.claude', '.obsidian']);
@@ -183,6 +186,124 @@ function senhaConfere(s) {
   return crypto.timingSafeEqual(a, b);
 }
 
+
+// ---------- Deploy ----------
+// Scripts em .claude/deploy/<slug>.sh (gerados por ligar-projetos.sh, editáveis).
+// O painel roda o script na VPS e deixa o deploy pendente para o agente da máquina Windows,
+// que faz polling em /api/agente/pendentes e devolve o resultado em /api/agente/resultado.
+const DEPLOY_DIR = path.join(CEREBRO, '.claude', 'deploy');
+const DEPLOY_LOGS = path.join(DEPLOY_DIR, 'logs');
+const DEPLOY_ESTADO = path.join(DEPLOY_DIR, 'estado.json');
+let deploys = { historico: {}, pendentes: [], agente: { visto: 0, maquina: '' } };
+try { deploys = Object.assign(deploys, JSON.parse(fs.readFileSync(DEPLOY_ESTADO, 'utf8'))); } catch {}
+const rodando = new Map(); // slug -> { id, proc, log }
+
+function salvarDeploys() {
+  try { fs.mkdirSync(DEPLOY_DIR, { recursive: true }); fs.writeFileSync(DEPLOY_ESTADO, JSON.stringify(deploys, null, 2)); } catch (e) { console.error(e); }
+}
+function slugValido(s) { return typeof s === 'string' && /^[a-z0-9][a-z0-9-]{0,80}$/.test(s); }
+function scriptDe(slug) { return path.join(DEPLOY_DIR, slug + '.sh'); }
+function cabecalho(txt, chave) { const m = txt.match(new RegExp('^#\\s*' + chave + '=(.*)$', 'm')); return m ? m[1].trim() : ''; }
+function agenteOnline() { return Date.now() - (deploys.agente.visto || 0) < 90000; }
+function emitir(evento, dados) { const msg = `event: ${evento}\ndata: ${JSON.stringify(dados)}\n\n`; for (const c of clientes) c.write(msg); }
+function lerLog(arq, max = 6000) {
+  try { const t = fs.readFileSync(arq, 'utf8'); return t.length > max ? '…' + t.slice(-max) : t; } catch { return ''; }
+}
+function diario(linha) {
+  try {
+    const d = new Date(); const p = (n) => String(n).padStart(2, '0');
+    const arq = path.join(CEREBRO, 'diario', `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}.md`);
+    fs.mkdirSync(path.dirname(arq), { recursive: true });
+    if (!fs.existsSync(arq)) fs.writeFileSync(arq, `# ${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}\n\n`);
+    fs.appendFileSync(arq, `- ${p(d.getHours())}:${p(d.getMinutes())} ${linha}\n`);
+  } catch (e) { console.error(e); }
+}
+
+function estadoDeploy(slug) {
+  const arq = scriptDe(slug);
+  let script = ''; try { script = fs.readFileSync(arq, 'utf8'); } catch {}
+  const ult = deploys.historico[slug] || null;
+  const r = rodando.get(slug);
+  return {
+    slug,
+    temScript: !!script,
+    script,
+    pasta: cabecalho(script, 'PASTA'),
+    rodando: !!r,
+    ultimo: ult && { ...ult, log: lerLog(path.join(DEPLOY_LOGS, ult.id + '.log')) },
+    logAoVivo: r ? lerLog(r.log) : '',
+    windows: {
+      configurado: !!AGENTE_TOKEN,
+      online: agenteOnline(),
+      visto: deploys.agente.visto || 0,
+      maquina: deploys.agente.maquina || '',
+      pendente: deploys.pendentes.some((p) => p.slug === slug),
+    },
+  };
+}
+
+function iniciarDeploy(slug) {
+  if (!slugValido(slug)) throw Object.assign(new Error('slug inválido'), { status: 400 });
+  const arq = scriptDe(slug);
+  if (!fs.existsSync(arq)) throw Object.assign(new Error('sem script de deploy (.claude/deploy/' + slug + '.sh)'), { status: 404 });
+  if (rodando.has(slug)) throw Object.assign(new Error('já tem um deploy rodando'), { status: 409 });
+  fs.mkdirSync(DEPLOY_LOGS, { recursive: true });
+  const id = `${slug}-${hojeArquivo()}`;
+  const log = path.join(DEPLOY_LOGS, id + '.log');
+  const txt = fs.readFileSync(arq, 'utf8');
+  const pasta = cabecalho(txt, 'PASTA');
+  const cwd = pasta && fs.existsSync(pasta) ? pasta : CEREBRO;
+  const saida = fs.createWriteStream(log);
+  saida.write(`# deploy ${slug} — ${new Date().toLocaleString('pt-BR')} — VPS\n# pasta: ${cwd}\n\n`);
+  const proc = spawn('bash', [arq], { cwd, env: { ...process.env, PROJETO: slug, PASTA: cwd }, stdio: ['ignore', 'pipe', 'pipe'] });
+  const registro = { id, slug, inicio: Date.now(), fim: 0, ok: null, codigo: null, windows: null };
+  deploys.historico[slug] = registro;
+  rodando.set(slug, { id, proc, log });
+  let ultimoEmit = 0;
+  const escreve = (c) => { saida.write(c); const t = Date.now(); if (t - ultimoEmit > 700) { ultimoEmit = t; emitir('deploy', { slug, rodando: true }); } };
+  proc.stdout.on('data', escreve); proc.stderr.on('data', escreve);
+  const termina = (codigo, erro) => {
+    if (erro) saida.write(`\n[erro ao executar] ${erro.message}\n`);
+    saida.write(`\n# fim — código ${codigo}\n`); saida.end();
+    registro.fim = Date.now(); registro.codigo = codigo; registro.ok = codigo === 0;
+    rodando.delete(slug);
+    // deixa pendente para a máquina Windows (vale por AGENTE_EXPIRA_MIN; se ela estiver desligada, expira)
+    if (AGENTE_TOKEN) {
+      deploys.pendentes = deploys.pendentes.filter((p) => p.slug !== slug);
+      deploys.pendentes.push({ id, slug, criado: Date.now(), expira: Date.now() + AGENTE_EXPIRA_MIN * 60000 });
+      registro.windows = { estado: agenteOnline() ? 'pendente' : 'aguardando máquina', log: '' };
+    }
+    salvarDeploys();
+    diario(`Deploy de [[${slug}]] na VPS: ${registro.ok ? 'ok' : 'falhou (código ' + codigo + ')'} (pelo painel)`);
+    emitir('deploy', { slug, rodando: false, ok: registro.ok });
+  };
+  proc.on('error', (e) => termina(-1, e));
+  proc.on('close', (codigo) => termina(codigo));
+  salvarDeploys();
+  emitir('deploy', { slug, rodando: true });
+  return { id };
+}
+
+function agenteAutenticado(req) {
+  if (!AGENTE_TOKEN) return false;
+  const h = String(req.headers.authorization || '');
+  const t = h.startsWith('Bearer ') ? h.slice(7).trim() : '';
+  if (t.length !== AGENTE_TOKEN.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(t), Buffer.from(AGENTE_TOKEN));
+}
+function limparPendentes() {
+  const agora = Date.now();
+  const antes = deploys.pendentes.length;
+  deploys.pendentes = deploys.pendentes.filter((p) => {
+    if (p.expira > agora) return true;
+    const h = deploys.historico[p.slug];
+    if (h && h.id === p.id && h.windows && h.windows.estado !== 'ok' && h.windows.estado !== 'falhou') { h.windows.estado = 'máquina desligada, não atualizou'; emitir('deploy', { slug: p.slug, rodando: false }); }
+    return false;
+  });
+  if (antes !== deploys.pendentes.length) salvarDeploys();
+}
+setInterval(limparPendentes, 30000).unref();
+
 // ---------- HTTP ----------
 const PUBLICO = path.join(__dirname, 'public');
 const clientes = new Set();
@@ -225,6 +346,45 @@ const servidor = http.createServer(async (req, res) => {
       return enviar(res, 303, '', 'text/plain', { Location: '/', 'Set-Cookie': 'cerebro=; Path=/; Max-Age=0' });
     }
 
+    // script do agente (público: não tem segredo; o token vai por parâmetro)
+    if (url.pathname === '/agente-windows.ps1') {
+      return enviar(res, 200, fs.readFileSync(path.join(PUBLICO, 'agente-windows.ps1')), 'text/plain; charset=utf-8');
+    }
+
+    // Agente da máquina Windows (token próprio, sem cookie)
+    if (url.pathname.startsWith('/api/agente/')) {
+      if (!agenteAutenticado(req)) return enviar(res, 401, { erro: 'token' });
+      deploys.agente.visto = Date.now();
+      deploys.agente.maquina = String(url.searchParams.get('maquina') || req.headers['x-maquina'] || deploys.agente.maquina || '').slice(0, 60);
+      if (url.pathname === '/api/agente/pendentes') {
+        limparPendentes();
+        salvarDeploys();
+        const lista = deploys.pendentes.map((p) => ({ id: p.id, slug: p.slug, pasta: cabecalho((() => { try { return fs.readFileSync(scriptDe(p.slug), 'utf8'); } catch { return ''; } })(), 'PASTA') }));
+        for (const p of lista) { const h = deploys.historico[p.slug]; if (h && h.id === p.id && h.windows) h.windows.estado = 'rodando na máquina'; }
+        deploys.pendentes = []; // entregues; o agente devolve o resultado
+        if (lista.length) { salvarDeploys(); for (const p of lista) emitir('deploy', { slug: p.slug, rodando: false }); }
+        return enviar(res, 200, { pendentes: lista });
+      }
+      if (url.pathname === '/api/agente/resultado' && req.method === 'POST') {
+        const { id, slug, ok, log } = JSON.parse((await lerCorpo(req, 400000)) || '{}');
+        if (!slugValido(slug)) return enviar(res, 400, { erro: 'slug' });
+        const h = deploys.historico[slug];
+        if (h && h.id === id) {
+          h.windows = { estado: ok ? 'ok' : 'falhou', log: String(log || '').slice(-6000), fim: Date.now(), maquina: deploys.agente.maquina };
+          try { fs.appendFileSync(path.join(DEPLOY_LOGS, id + '.log'), `
+
+# ${deploys.agente.maquina || 'máquina Windows'}
+${String(log || '').slice(-6000)}
+`); } catch {}
+          diario(`Deploy de [[${slug}]] na máquina ${deploys.agente.maquina || 'Windows'}: ${ok ? 'ok' : 'falhou'}`);
+        }
+        salvarDeploys();
+        emitir('deploy', { slug, rodando: false });
+        return enviar(res, 200, { ok: true });
+      }
+      return enviar(res, 404, { erro: 'não encontrado' });
+    }
+
     if (!autenticado(req)) {
       if (url.pathname.startsWith('/api/')) return enviar(res, 401, { erro: 'login' });
       return enviar(res, 200, fs.readFileSync(path.join(PUBLICO, 'login.html')), 'text/html; charset=utf-8');
@@ -256,6 +416,20 @@ const servidor = http.createServer(async (req, res) => {
       fs.writeFileSync(path.join(CEREBRO, rel), conteudo, { flag: 'wx' });
       verificar();
       return enviar(res, 200, { ok: true, id: rel });
+    }
+
+    if (url.pathname === '/api/deploy' && req.method === 'GET') {
+      const slug = url.searchParams.get('slug');
+      if (!slugValido(slug)) return enviar(res, 400, { erro: 'slug inválido' });
+      return enviar(res, 200, estadoDeploy(slug));
+    }
+    if (url.pathname === '/api/deploy' && req.method === 'POST') {
+      const { slug } = JSON.parse((await lerCorpo(req)) || '{}');
+      try { return enviar(res, 200, { ok: true, ...iniciarDeploy(slug) }); }
+      catch (e) { return enviar(res, e.status || 500, { erro: e.message }); }
+    }
+    if (url.pathname === '/api/config-agente') {
+      return enviar(res, 200, { token: AGENTE_TOKEN, url: `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}` });
     }
 
     if (url.pathname === '/api/eventos') {

@@ -81,6 +81,8 @@ if [ -z "${PAINEL_SENHA:-}" ]; then
 fi
 SEGREDO=$(grep '^PAINEL_SEGREDO=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- || true)
 [ -n "$SEGREDO" ] || SEGREDO=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')
+AGENTE_TOKEN=$(grep '^AGENTE_TOKEN=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- || true)
+[ -n "$AGENTE_TOKEN" ] || AGENTE_TOKEN=$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')
 HOST=0.0.0.0; [ -n "$DOMINIO" ] && HOST=127.0.0.1
 
 umask 077
@@ -91,6 +93,8 @@ HOST=$HOST
 PAINEL_SENHA=$PAINEL_SENHA
 PAINEL_SEGREDO=$SEGREDO
 PROXIMA_COMPILACAO=23:30
+AGENTE_TOKEN=$AGENTE_TOKEN
+AGENTE_EXPIRA_MIN=15
 EOF
 umask 022
 
@@ -177,5 +181,7 @@ verde "════════════════════════�
 if [ -n "$DOMINIO" ]; then echo " Painel:  https://$DOMINIO"; else echo " Painel:  http://$IP:$PORTA"; fi
 echo " Pasta:   $CEREBRO_DIR"
 echo " Usar:    cd $CEREBRO_DIR && claude   →  /entrevista para começar"
+echo " Deploy:  no painel, abra um projeto → botão Deploy (git pull na VPS e na máquina Windows)"
+echo "          Para a máquina Windows: painel → projeto → 'Configurar a máquina Windows'"
 [ -z "$DOMINIO" ] && amarelo " Sem domínio o painel usa HTTP. Para HTTPS: DOMINIO=seu.dominio sudo bash instalar.sh"
 echo

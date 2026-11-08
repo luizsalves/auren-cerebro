@@ -66,6 +66,15 @@ kbd{font:11px 'JetBrains Mono',monospace;color:#A3A6BD;border:1px solid rgba(255
 .foot{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;font:12px 'JetBrains Mono',monospace;color:#A3A6BD}
 .foot .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#FF8A5B;margin-right:6px}
 .foot .sair{margin-left:auto;color:#A3A6BD}
+.dep{border-radius:14px;padding:14px;background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.09);display:flex;flex-direction:column;gap:10px}
+.dep .row{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.dep .st{display:inline-flex;align-items:center;gap:6px;font:12px 'JetBrains Mono',monospace;color:#C9CBE0}
+.dep .st i{width:7px;height:7px;border-radius:50%;background:#A3A6BD}
+.dep .st.ok i{background:#6EE7A8;box-shadow:0 0 8px #6EE7A8}.dep .st.err i{background:#FF8A5B;box-shadow:0 0 8px #FF8A5B}.dep .st.run i{background:#C9BBFF;animation:pulse2 1s infinite}
+@keyframes pulse2{50%{opacity:.3}}
+.dep pre{margin:0;max-height:240px;overflow:auto;font:11.5px 'JetBrains Mono',monospace;background:rgba(0,0,0,.3);padding:10px;border-radius:10px;white-space:pre-wrap;color:#D2D3E6}
+.dep details summary{cursor:pointer;font-size:12px;color:#A3A6BD}
+.btn.deploy{background:#C9BBFF;color:#10073A}.btn.deploy:disabled{opacity:.5;cursor:default}
 .panel{flex:1 1 330px;min-width:0;border-radius:20px;padding:24px;background:rgba(36,20,100,.5);border:1px solid rgba(255,255,255,.09);backdrop-filter:blur(18px);display:flex;flex-direction:column;gap:14px;position:sticky;top:20px;max-height:calc(100vh - 40px);overflow:auto}
 .kick{display:inline-flex;align-self:flex-start;align-items:center;gap:8px;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--c);padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
 .kick i{width:7px;height:7px;border-radius:50%;background:var(--c);box-shadow:0 0 8px var(--c)}
@@ -398,9 +407,55 @@ async function abrir(id, rolar) {
     <div class="md">${markdown((nota.md || '').replace(/^\s*#\s+(.+)\n?/, (m, t) => t.trim().toLowerCase() === n.titulo.toLowerCase() ? '' : m)) || '<p class="nada">Nota vazia.</p>'}</div>
     <div class="sec">Conexões</div>
     <div class="links">${viz.map((v) => `<button type="button" class="link" data-id="${esc(v.id)}" style="--c:${LOBOS[v.lobo].cor}"><i></i><span class="ln">${esc(v.label)}</span><span class="lw">${LOBOS[v.lobo].o}</span></button>`).join('') || '<div class="nada">Sem conexões ainda. Use [[nome-da-nota]] para ligar.</div>'}</div>
+    ${n.id.startsWith('wiki/projetos/') ? `<div class="sec">Deploy</div><div class="dep" id="dep" data-slug="${esc(stemDe(n.id))}"><div class="nada">Carregando…</div></div>` : ''}
     <div class="sec">Comandos no Claude Code</div>
     <div class="fm"><span>/capturar</span><span>/compilar</span><span>/revisao-semanal</span><span>/lint</span></div>`;
+  if (n.id.startsWith('wiki/projetos/')) carregarDeploy(stemDe(n.id));
   if (rolar) $('panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ---------- Deploy ----------
+function quando(t) { return t ? new Date(t).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''; }
+async function carregarDeploy(slug) {
+  const box = $('dep'); if (!box || box.dataset.slug !== slug) return;
+  let d; try { const r = await fetch('/api/deploy?slug=' + encodeURIComponent(slug)); if (!r.ok) throw 0; d = await r.json(); } catch { box.innerHTML = '<div class="nada">Não consegui ler o estado do deploy.</div>'; return; }
+  if (!$('dep') || $('dep').dataset.slug !== slug) return;
+  if (!d.temScript) {
+    box.innerHTML = `<div class="nada">Sem script de deploy. Rode <code>ligar-projetos.sh</code> ou crie <code>.claude/deploy/${esc(slug)}.sh</code>.</div>`;
+    return;
+  }
+  const u = d.ultimo;
+  const vps = d.rodando ? ['run', 'rodando…'] : u ? (u.ok ? ['ok', 'ok · ' + quando(u.fim)] : ['err', 'falhou · ' + quando(u.fim)]) : ['', 'nunca rodou'];
+  let win = ['', 'Windows: agente não configurado'];
+  if (d.windows.configurado) {
+    const w = u && u.windows;
+    const on = d.windows.online ? 'online' : 'desligada';
+    const est = w ? w.estado : '—';
+    win = [est === 'ok' ? 'ok' : est === 'falhou' ? 'err' : /rodando|pendente/.test(est) ? 'run' : '', `${d.windows.maquina || 'Windows'} (${on}): ${est}`];
+  }
+  box.innerHTML = `
+    <div class="row">
+      <button type="button" class="btn deploy" id="btnDeploy" ${d.rodando ? 'disabled' : ''}>${d.rodando ? 'Rodando…' : 'Fazer deploy'}</button>
+      <span class="st ${vps[0]}"><i></i>VPS: ${esc(vps[1])}</span>
+      <span class="st ${win[0]}"><i></i>${esc(win[1])}</span>
+    </div>
+    <div class="mono">git pull em ${esc(d.pasta || '?')}${d.windows.configurado ? ' e na máquina Windows (se ligada)' : ''}</div>
+    ${d.rodando || (u && u.log) ? `<pre>${esc(d.rodando ? d.logAoVivo : u.log)}</pre>` : ''}
+    <details><summary>Ver o que o deploy executa (.claude/deploy/${esc(slug)}.sh)</summary><pre>${esc(d.script)}</pre></details>
+    ${d.windows.configurado ? `<details><summary>Configurar a máquina Windows</summary><div class="mono" id="cfgWin">Carregando…</div></details>` : ''}`;
+  $('btnDeploy').onclick = async () => {
+    if (!confirm('Fazer deploy de ' + slug + ' agora?')) return;
+    $('btnDeploy').disabled = true;
+    try { const r = await fetch('/api/deploy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug }) }); const j = await r.json(); if (!r.ok) throw new Error(j.erro || 'falhou'); toast('Deploy iniciado'); }
+    catch (e) { toast('Não iniciou: ' + e.message); $('btnDeploy').disabled = false; }
+  };
+  const cfg = $('cfgWin');
+  if (cfg) cfg.parentElement.addEventListener('toggle', async function f() {
+    cfg.parentElement.removeEventListener('toggle', f);
+    try { const c = await (await fetch('/api/config-agente')).json();
+      cfg.innerHTML = `No PowerShell (como usuário normal):<pre>irm ${esc(c.url)}/agente-windows.ps1 -OutFile agente.ps1\n.\\agente.ps1 -Instalar -Url ${esc(c.url)} -Token ${esc(c.token)}</pre>Depois edite <code>%USERPROFILE%\\.cerebro\\agente.json</code> e aponte cada projeto para a pasta local dele.`;
+    } catch { cfg.textContent = 'Não consegui ler a configuração.'; }
+  });
 }
 
 // ---------- Dados ----------
@@ -431,6 +486,7 @@ function conectar() {
   es.onopen = () => { $('live').classList.add('on'); $('liveTxt').textContent = 'Ao vivo'; };
   es.onerror = () => { $('live').classList.remove('on'); $('liveTxt').textContent = 'Reconectando…'; };
   es.addEventListener('mudou', (e) => { let m = []; try { m = JSON.parse(e.data); } catch {} carregar(m); });
+  es.addEventListener('deploy', (e) => { let d = {}; try { d = JSON.parse(e.data); } catch {} const box = $('dep'); if (box && box.dataset.slug === d.slug) carregarDeploy(d.slug); });
 }
 
 function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 2600); }

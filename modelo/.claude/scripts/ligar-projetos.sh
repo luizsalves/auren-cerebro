@@ -253,7 +253,50 @@ if [ -f CLAUDE.md ]; then
   rm -f "$bloco"
 fi
 
-# ---------- 8. commit ----------
+# ---------- 8. scripts de deploy (.claude/deploy/<slug>.sh) ----------
+# Gerados uma vez a partir da stack detectada; depois são seus (não são sobrescritos).
+mkdir -p .claude/deploy/logs
+for i in "${!NOMES[@]}"; do
+  d="${CAMINHOS[$i]}"; s="${SLUGS[$i]}"; arq=".claude/deploy/$s.sh"
+  [ -f "$arq" ] && continue
+  {
+    echo "#!/usr/bin/env bash"
+    echo "# Deploy de ${NOMES[$i]} — rodado pelo painel (botão Deploy) dentro da pasta abaixo."
+    echo "# PASTA=$d"
+    echo "# Edite à vontade. Gerado por ligar-projetos.sh em $HOJE a partir da stack: $(stack_de "$d")"
+    echo "set -euo pipefail"
+    echo 'cd "$(sed -n "s/^# PASTA=//p" "$0")"'
+    echo 'echo "▸ git pull"'
+    if [ -d "$d/.git" ]; then
+      echo 'git pull --ff-only'
+    else
+      echo 'echo "pasta sem .git — nada para puxar"; exit 1'
+    fi
+    if [ -f "$d/deploy.sh" ]; then
+      echo 'echo "▸ deploy.sh do projeto"; bash ./deploy.sh'
+    fi
+    if ls "$d"/docker-compose*.y*ml >/dev/null 2>&1 || [ -f "$d/compose.yaml" ]; then
+      echo 'echo "▸ docker compose"; docker compose up -d --build --remove-orphans'
+    fi
+    if [ -f "$d/package.json" ]; then
+      echo 'echo "▸ npm install"; if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi'
+      grep -q '"build"' "$d/package.json" && echo 'echo "▸ npm run build"; npm run build'
+      if command -v pm2 >/dev/null 2>&1 && pm2 describe "${NOMES[$i]}" >/dev/null 2>&1; then
+        echo "echo \"▸ pm2 restart\"; pm2 restart \"${NOMES[$i]}\""
+      fi
+    fi
+    if [ -f "$d/requirements.txt" ]; then
+      echo 'echo "▸ pip"; if [ -x .venv/bin/pip ]; then .venv/bin/pip install -q -r requirements.txt; else pip install -q -r requirements.txt; fi'
+    fi
+    svc=$(systemctl list-units --type=service --all --no-legend 2>/dev/null | awk '{print $1}' | grep -i -m1 "^$s\.service$\|^${NOMES[$i]}\.service$" || true)
+    [ -n "$svc" ] && echo "echo \"▸ systemctl restart $svc\"; systemctl restart $svc"
+    echo 'echo "✓ deploy concluído"'
+  } > "$arq"
+  chmod +x "$arq"
+  echo "deploy: $arq"
+done
+
+# ---------- 9. commit ----------
 if git rev-parse --verify HEAD >/dev/null 2>&1 && [ -n "$(git status --porcelain)" ]; then
   git add -A && git commit -q -m "ligar-projetos: ${#NOMES[@]} projetos da VPS ($HOJE)" && echo "commit feito"
 fi

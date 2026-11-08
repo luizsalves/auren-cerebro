@@ -85,6 +85,19 @@ Roda no instalador e todo domingo 18:30. Na mão:
 `bash /root/cerebro/.claude/scripts/ligar-projetos.sh`
 (outras pastas: `PASTAS="/opt/projetos /srv/apps" EXCLUIR="secrets tmp" bash ...`).
 
+### Deploy pelo painel
+
+Ao abrir um projeto no painel aparece o botão **Deploy**: ele roda `.claude/deploy/<slug>.sh`
+na VPS (por padrão `git pull` + build/restart conforme a stack detectada; edite à vontade) e
+deixa o mesmo deploy pendente para a sua máquina Windows. Log ao vivo no painel e uma linha
+no `diario/` para cada máquina.
+
+**Máquina Windows:** um agente em PowerShell pergunta ao painel a cada 20 s se há deploy
+pendente e faz `git pull` (ou `deploy.ps1`/`deploy.cmd`, se existir) na pasta local do
+projeto. Se a máquina estiver desligada, o pendente expira em 15 min (`AGENTE_EXPIRA_MIN`).
+Instalação: painel → projeto → **Configurar a máquina Windows** (mostra o comando com URL e
+token). As pastas locais ficam em `%USERPROFILE%\.cerebro\agente.json`.
+
 ### Rotinas (cron, horário do servidor)
 
 | Quando | O quê | Modelo |
