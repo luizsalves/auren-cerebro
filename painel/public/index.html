@@ -181,6 +181,7 @@ const LOBOS = {
   occipital: { nome: 'Occipital', o: 'diário',     cor: '#5BE39A', c: [840, 360] },
   cerebelo:  { nome: 'Cerebelo',  o: 'raw',        cor: '#93A4D6', c: [740, 560] },
   tronco:    { nome: 'Tronco',    o: 'identidade', cor: '#F2F2F7', c: [600, 640] },
+  agentes:   { nome: 'Agentes',   o: 'agentes',    cor: '#FF9F6B', c: [190, 520] },
 };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -408,10 +409,51 @@ async function abrir(id, rolar) {
     <div class="sec">Conexões</div>
     <div class="links">${viz.map((v) => `<button type="button" class="link" data-id="${esc(v.id)}" style="--c:${LOBOS[v.lobo].cor}"><i></i><span class="ln">${esc(v.label)}</span><span class="lw">${LOBOS[v.lobo].o}</span></button>`).join('') || '<div class="nada">Sem conexões ainda. Use [[nome-da-nota]] para ligar.</div>'}</div>
     ${n.id.startsWith('wiki/projetos/') ? `<div class="sec">Deploy</div><div class="dep" id="dep" data-slug="${esc(stemDe(n.id))}"><div class="nada">Carregando…</div></div>` : ''}
+    ${n.agente ? `<div class="sec">Agente</div><div class="dep" id="ag" data-nome="${esc(n.agente)}"><div class="nada">Carregando…</div></div>` : ''}
     <div class="sec">Comandos no Claude Code</div>
     <div class="fm"><span>/capturar</span><span>/compilar</span><span>/revisao-semanal</span><span>/lint</span></div>`;
   if (n.id.startsWith('wiki/projetos/')) carregarDeploy(stemDe(n.id));
+  if (n.agente) carregarAgente(n.agente);
   if (rolar) $('panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ---------- Agentes ----------
+async function carregarAgente(nome) {
+  const box = $('ag'); if (!box || box.dataset.nome !== nome) return;
+  let d; try { const r = await fetch('/api/agentes/detalhe?nome=' + encodeURIComponent(nome)); if (!r.ok) throw 0; d = await r.json(); } catch { box.innerHTML = '<div class="nada">Não consegui ler o agente.</div>'; return; }
+  if (!$('ag') || $('ag').dataset.nome !== nome) return;
+  if (!d.existe) { box.innerHTML = '<div class="nada">Pasta do agente não encontrada.</div>'; return; }
+  const c = d.cfg || {}, e = c.estado || {};
+  const st = d.rodando ? ['run', (d.rodando.acao === 'avaliar' ? 'avaliando…' : 'rodando…')] : e.status ? [e.status === 'ok' ? 'ok' : /falhou|reprovado|bloqueado/.test(e.status) ? 'err' : '', `${e.status}${e.veredito && e.veredito !== e.status ? ' (' + e.veredito + ')' : ''} · ${quando(e.fim)}`] : ['', 'nunca rodou'];
+  const papelCor = { orquestrador: '#C9BBFF', arbitro: '#FFD166', especialista: '#FF9F6B' }[c.papel] || '#A3A6BD';
+  box.innerHTML = `
+    <div class="row">
+      <span class="kick" style="--c:${papelCor}"><i></i>${esc(c.papel || '?')} · ${esc(c.status || '?')}</span>
+      <span class="st ${st[0]}"><i></i>${esc(st[1])}</span>
+      ${e.custo_usd != null ? `<span class="st"><i></i>US$ ${Number(e.custo_usd).toFixed(2)}${e.turnos ? ' · ' + e.turnos + ' turnos' : ''}</span>` : ''}
+    </div>
+    ${c.missao ? `<div class="mono">${esc(c.missao)}</div>` : ''}
+    <div class="mono">modelo ${esc(c.modelo || '?')} · motor ${esc(d.motor)} · horário ${esc(c.horario || 'sob demanda')}${c.codigo ? ' · código ' + esc(c.codigo) : ''}</div>
+    <div class="row">
+      <button type="button" class="btn deploy" id="btnAgRodar" ${d.rodando || c.papel === 'arbitro' ? 'disabled' : ''}>${d.rodando ? 'Rodando…' : 'Rodar agora'}</button>
+      <button type="button" class="btn ghost" id="btnAgAvaliar" ${d.rodando ? 'disabled' : ''}>Avaliar</button>
+      ${c.avaliacao ? `<span class="st ${c.avaliacao.media >= 7 ? 'ok' : 'err'}"><i></i>avaliação ${c.avaliacao.media}/10</span>` : (e.avaliacao ? `<span class="st ${e.avaliacao.media >= 7 ? 'ok' : 'err'}"><i></i>avaliação ${e.avaliacao.media}/10</span>` : '')}
+    </div>
+    ${d.rodando ? `<pre>${esc(d.rodando.log || '…')}</pre>` : ''}
+    ${d.pendencias.length ? `<div class="sec">Pendências (${d.pendencias.length})</div><div class="md"><ul>${d.pendencias.map((p) => `<li>${esc(p)}</li>`).join('')}</ul></div><div class="mono">Resolva no Claude Code: /agente ${esc(nome)}</div>` : '<div class="nada">Sem pendências abertas.</div>'}
+    ${d.ultimaExecucao ? `<details><summary>Última execução · ${esc(d.ultimaExecucao.arquivo.split('/').pop())}</summary><pre>${esc(d.ultimaExecucao.texto)}</pre></details>` : ''}
+    ${d.ultimaAvaliacao ? `<details><summary>Última avaliação · ${esc(d.ultimaAvaliacao.arquivo.split('/').pop())}</summary><pre>${esc(d.ultimaAvaliacao.texto)}</pre></details>` : ''}
+    ${d.conhecimento ? `<details><summary>conhecimento.md</summary><pre>${esc(d.conhecimento)}</pre></details>` : ''}`;
+  const disparar = async (acao) => {
+    let tarefa = '';
+    if (acao === 'rodar') { tarefa = prompt('Tarefa desta rodada (vazio = rodada padrão do agente):', '') ; if (tarefa === null) return; }
+    else if (!confirm('Avaliar ' + nome + ' agora? Roda todos os casos de avaliacao.md.')) return;
+    $('btnAgRodar').disabled = true; $('btnAgAvaliar').disabled = true;
+    try { const r = await fetch('/api/agentes/' + acao, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome, tarefa }) }); const j = await r.json(); if (!r.ok) throw new Error(j.erro || 'falhou'); toast(acao === 'rodar' ? 'Rodada iniciada' : 'Avaliação iniciada'); }
+    catch (err) { toast('Não iniciou: ' + err.message); carregarAgente(nome); }
+  };
+  $('btnAgRodar').onclick = () => disparar('rodar');
+  $('btnAgAvaliar').onclick = () => disparar('avaliar');
 }
 
 // ---------- Deploy ----------
@@ -487,6 +529,7 @@ function conectar() {
   es.onerror = () => { $('live').classList.remove('on'); $('liveTxt').textContent = 'Reconectando…'; };
   es.addEventListener('mudou', (e) => { let m = []; try { m = JSON.parse(e.data); } catch {} carregar(m); });
   es.addEventListener('deploy', (e) => { let d = {}; try { d = JSON.parse(e.data); } catch {} const box = $('dep'); if (box && box.dataset.slug === d.slug) carregarDeploy(d.slug); });
+  es.addEventListener('agente', (e) => { let d = {}; try { d = JSON.parse(e.data); } catch {} const box = $('ag'); if (box && box.dataset.nome === d.nome) carregarAgente(d.nome); });
 }
 
 function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 2600); }

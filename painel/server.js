@@ -22,7 +22,10 @@ const AGENTE_TOKEN = process.env.AGENTE_TOKEN || '';          // token do agente
 const AGENTE_EXPIRA_MIN = Number(process.env.AGENTE_EXPIRA_MIN) || 15; // deploy pendente expira se a máquina estiver desligada
 
 // Pastas/arquivos que não entram no grafo
-const IGNORAR_PASTAS = new Set(['.git', 'node_modules', 'painel', '_arquivo', '.claude', '.obsidian']);
+const IGNORAR_PASTAS = new Set(['.git', 'node_modules', 'painel', '_arquivo', '.claude', '.obsidian', 'execucoes', 'avaliacoes', '_modelo']);
+// agentes/<nome>/agente.md entra no grafo como o neurônio do agente (os outros arquivos da pasta aparecem na página dele)
+const AGENTE_RE = /^agentes\/([^/]+)\/agente\.md$/;
+function nomeAgente(rel) { const m = rel.match(AGENTE_RE); return m ? m[1] : null; }
 const IGNORAR_ARQUIVOS = new Set(['CLAUDE.md', 'AGENTS.md', 'CLAUDE.local.md', '_indice.md', 'README.md']);
 
 // Pasta -> lobo (o primeiro prefixo que bater vence)
@@ -34,6 +37,7 @@ const LOBOS = [
   ['diario', 'occipital'],
   ['raw', 'cerebelo'],
   ['identidade', 'tronco'],
+  ['agentes', 'agentes'],
   ['agora.md', 'frontal'],
   ['wiki', 'parietal'],
 ];
@@ -52,6 +56,7 @@ function listarMd(dir, base = '') {
       out = out.concat(listarMd(path.join(dir, it.name), rel));
     } else if (it.isFile() && it.name.toLowerCase().endsWith('.md')) {
       if (!base && IGNORAR_ARQUIVOS.has(it.name)) continue;
+      if (/^agentes\/[^/]+\//.test(rel) && it.name !== 'agente.md') continue;
       out.push(rel);
     }
   }
@@ -117,11 +122,13 @@ function lerCerebro() {
     try { txt = fs.readFileSync(path.join(CEREBRO, rel), 'utf8'); } catch { continue; }
     const { fm, corpo } = separarFrontmatter(txt);
     const titulo = (fm.title || fm.titulo || (corpo.match(/^#\s+(.+)$/m) || [])[1] || path.basename(rel, '.md')).trim();
-    const stem = stemDe(rel);
+    const agente = nomeAgente(rel);
+    const stem = agente || stemDe(rel);
     const mtime = mtimes.get(rel);
     nos.push({
       id: rel,
-      label: path.basename(rel, '.md'),
+      label: agente || path.basename(rel, '.md'),
+      agente: agente || undefined,
       titulo,
       lobo: loboDe(rel),
       mtime,
@@ -304,6 +311,53 @@ function limparPendentes() {
 }
 setInterval(limparPendentes, 30000).unref();
 
+// ---------- Agentes do cérebro ----------
+const { execFileSync } = require('child_process');
+const AGENTES_LIB = path.join(CEREBRO, '.claude', 'scripts', 'agentes-lib.js');
+const agentesRodando = new Map(); // nome -> { acao, log, inicio }
+function listarAgentes() {
+  try { return JSON.parse(execFileSync(process.execPath, [AGENTES_LIB, 'listar'], { cwd: CEREBRO, encoding: 'utf8', timeout: 10000 })); } catch (e) { return []; }
+}
+function detalheAgente(nome) {
+  const dir = path.join(CEREBRO, 'agentes', nome);
+  if (!fs.existsSync(path.join(dir, 'agente.md'))) return { existe: false, nome };
+  const lista = listarAgentes();
+  const cfg = lista.find((a) => a.nome === nome) || { nome };
+  const ler = (f, max = 8000) => { try { const t = fs.readFileSync(path.join(dir, f), 'utf8'); return t.length > max ? t.slice(0, max) + '\n…' : t; } catch { return ''; } };
+  const pendencias = (ler('pendencias.md', 20000).match(/^- \[ \] .+$/gm) || []).map((l) => l.replace(/^- \[ \] /, ''));
+  const execs = (() => { try { return fs.readdirSync(path.join(dir, 'execucoes')).filter((f) => f.endsWith('.md')).sort().reverse(); } catch { return []; } })();
+  const avals = (() => { try { return fs.readdirSync(path.join(dir, 'avaliacoes')).filter((f) => f.endsWith('.md')).sort().reverse(); } catch { return []; } })();
+  const r = agentesRodando.get(nome);
+  return {
+    existe: true, nome, cfg, pendencias, execucoes: execs.slice(0, 10),
+    ultimaExecucao: execs[0] ? { arquivo: 'agentes/' + nome + '/execucoes/' + execs[0], texto: ler('execucoes/' + execs[0], 6000) } : null,
+    ultimaAvaliacao: avals[0] ? { arquivo: 'agentes/' + nome + '/avaliacoes/' + avals[0], texto: ler('avaliacoes/' + avals[0], 3000) } : null,
+    conhecimento: ler('conhecimento.md', 4000),
+    rodando: r ? { acao: r.acao, inicio: r.inicio, log: lerLog(r.log, 4000) } : null,
+    motor: (() => { try { const m = fs.readFileSync(path.join(CEREBRO, '.claude', 'motor.env'), 'utf8').match(/^MOTOR=(\S+)/m); return m ? m[1] : 'claude'; } catch { return 'claude'; } })(),
+  };
+}
+function iniciarAgente(nome, acao, tarefa) {
+  if (!slugValido(nome)) throw Object.assign(new Error('nome inválido'), { status: 400 });
+  if (!fs.existsSync(path.join(CEREBRO, 'agentes', nome, 'agente.md'))) throw Object.assign(new Error('agente não existe'), { status: 404 });
+  if (agentesRodando.has(nome)) throw Object.assign(new Error('já tem uma rodada em andamento'), { status: 409 });
+  const logsDir = path.join(CEREBRO, '.claude', 'agentes', 'logs'); fs.mkdirSync(logsDir, { recursive: true });
+  const log = path.join(logsDir, `painel-${hojeArquivo()}-${nome}.log`);
+  const saida = fs.createWriteStream(log);
+  const script = path.join(CEREBRO, '.claude', 'scripts', acao === 'avaliar' ? 'avaliar-agente.sh' : 'rodar-agente.sh');
+  const args = acao === 'avaliar' ? [script, nome] : [script, nome, ...(tarefa ? [String(tarefa).slice(0, 500)] : []), '--gatilho=painel'];
+  const proc = spawn('bash', args, { cwd: CEREBRO, env: { ...process.env, HOME: process.env.HOME || '/root' }, stdio: ['ignore', 'pipe', 'pipe'] });
+  agentesRodando.set(nome, { acao, log, inicio: Date.now() });
+  let ultimoEmit = 0;
+  const escreve = (c) => { saida.write(c); const t = Date.now(); if (t - ultimoEmit > 800) { ultimoEmit = t; emitir('agente', { nome, rodando: true }); } };
+  proc.stdout.on('data', escreve); proc.stderr.on('data', escreve);
+  const fim = (codigo) => { saida.write(`\n# fim — código ${codigo}\n`); saida.end(); agentesRodando.delete(nome); emitir('agente', { nome, rodando: false, codigo }); };
+  proc.on('error', (e) => { saida.write('[erro] ' + e.message); fim(-1); });
+  proc.on('close', fim);
+  emitir('agente', { nome, rodando: true });
+  return { log: path.relative(CEREBRO, log) };
+}
+
 // ---------- HTTP ----------
 const PUBLICO = path.join(__dirname, 'public');
 const clientes = new Set();
@@ -428,6 +482,19 @@ ${String(log || '').slice(-6000)}
       try { return enviar(res, 200, { ok: true, ...iniciarDeploy(slug) }); }
       catch (e) { return enviar(res, e.status || 500, { erro: e.message }); }
     }
+    // ---------- agentes do cérebro (pasta agentes/) ----------
+    if (url.pathname === '/api/agentes') return enviar(res, 200, listarAgentes());
+    if (url.pathname === '/api/agentes/detalhe') {
+      const nome = url.searchParams.get('nome');
+      if (!slugValido(nome)) return enviar(res, 400, { erro: 'nome inválido' });
+      return enviar(res, 200, detalheAgente(nome));
+    }
+    if ((url.pathname === '/api/agentes/rodar' || url.pathname === '/api/agentes/avaliar') && req.method === 'POST') {
+      const { nome, tarefa } = JSON.parse((await lerCorpo(req)) || '{}');
+      try { return enviar(res, 200, { ok: true, ...iniciarAgente(nome, url.pathname.endsWith('avaliar') ? 'avaliar' : 'rodar', tarefa) }); }
+      catch (e) { return enviar(res, e.status || 500, { erro: e.message }); }
+    }
+
     if (url.pathname === '/api/config-agente') {
       return enviar(res, 200, { token: AGENTE_TOKEN, url: `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}` });
     }

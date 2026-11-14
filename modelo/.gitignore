@@ -8,3 +8,5 @@ CLAUDE.local.md
 .claude/deploy/logs/
 .claude/deploy/estado.json
 .claude/ultimo-inventario-vps
+.claude/agentes/
+.claude/motor.env

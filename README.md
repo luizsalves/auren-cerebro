@@ -43,13 +43,15 @@ As suas notas nunca são sobrescritas.
 │   ├── projetos/  clientes/  pessoas/  notas/
 │   └── decisoes.md
 ├── diario/                     AAAA-MM-DD.md + revisões semanais
+├── agentes/                    _modelo/, orquestrador/, arbitro/ e os seus (agente.md, conhecimento, exemplos, avaliacao, pendencias, execucoes/)
 ├── _arquivo/                   nada é apagado, vem pra cá
 └── .claude/
     ├── settings.json           hooks
     ├── rules/                  raw.md, wiki.md, pessoas.md (carregam por pasta)
-    ├── skills/                 capturar, compilar, revisao-semanal, lint, entrevista
+    ├── skills/                 capturar, compilar, revisao-semanal, lint, entrevista, agentes, agente, novo-agente, avaliar, despachar
     ├── hooks/                  inicio.sh, protege.js, salvar.sh
-    └── scripts/                lint.js, rotina.sh, guarda-raw.sh, ligar-projetos.sh
+    ├── motor.env               MOTOR=claude|ollama|simulado, modelos, orçamento (fora do git)
+    └── scripts/                lint.js, rotina.sh, guarda-raw.sh, ligar-projetos.sh, rodar-agente.sh, motor.sh, motor-ollama.js, avaliar-agente.sh, agendar-agentes.sh, agentes-lib.js
 
 /opt/cerebro-painel/            ← painel web (Node, sem dependências)
 /etc/cerebro-painel.env         ← senha e configuração (só root lê)
@@ -85,6 +87,31 @@ Roda no instalador e todo domingo 18:30. Na mão:
 `bash /root/cerebro/.claude/scripts/ligar-projetos.sh`
 (outras pastas: `PASTAS="/opt/projetos /srv/apps" EXCLUIR="secrets tmp" bash ...`).
 
+### Agentes
+
+Cada agente é uma pasta em `/root/cerebro/agentes/<nome>/`: `agente.md` (frontmatter com papel, status,
+modelo, horário, ferramentas, comandos permitidos, efeitos externos, orçamento), `conhecimento.md`,
+`exemplos.md`, `avaliacao.md`, `pendencias.md` e `execucoes/`. Sem código: o código que o agente usa
+fica em `/opt/saas/<nome>/` (campo `codigo:`) e as credenciais em `/etc/cerebro-agentes/<nome>.env`.
+
+Papéis: **orquestrador** (Haiku, de hora em hora) lê `raw/` novo e pendências e despacha até 5
+especialistas; **especialista** executa dentro de allowlists; **árbitro** (Haiku, só leitura) julga cada
+rodada sem ver o raciocínio — reprovou, o especialista refaz uma vez, depois vira pendência sua.
+Especialista não chama especialista; ninguém aprova a si mesmo; efeito externo fica "preparado para
+aprovação".
+
+Quem roda é `.claude/scripts/rodar-agente.sh <nome> ["tarefa"]`, o único ponto que fala com o modelo.
+Motor em `.claude/motor.env`: `MOTOR=claude` (login do Claude Code, sem API key), `MOTOR=ollama`
+(`motor-ollama.js`, mesmas regras, servidor próprio) ou `MOTOR=simulado` (testa a instalação sem
+gastar). Orçamento diário (`ORCAMENTO_DIA_USD`) e por rodada (`orcamento_rodada_usd`) bloqueiam
+quando estouram. O hook `protege.js` impede o agente de editar o próprio conhecimento, `identidade/`,
+`CLAUDE.md`, `.claude/` e `raw/` existente.
+
+No Claude Code: `/agentes`, `/agente <nome>` (situação, rodar, aceitar/rejeitar pendências, avaliar),
+`/novo-agente <nome>`, `/avaliar <nome>`, `/despachar`. No painel: lobo **Agentes**, botão **Rodar
+agora** com log ao vivo e **Avaliar**. Horários vêm do campo `horario:` e viram
+`/etc/cron.d/cerebro-agentes` (regenerado a cada 30 min por `agendar-agentes.sh`).
+
 ### Deploy pelo painel
 
 Ao abrir um projeto no painel aparece o botão **Deploy**: ele roda `.claude/deploy/<slug>.sh`
@@ -103,6 +130,8 @@ token). As pastas locais ficam em `%USERPROFILE%\.cerebro\agente.json`.
 | Quando | O quê | Modelo |
 |---|---|---|
 | domingo 18:30 | `ligar-projetos.sh` (sem IA) | — |
+| de hora em hora | orquestrador dos agentes | haiku |
+| `horario:` de cada agente | rodada do agente + árbitro | o do agente + haiku |
 | todo dia 23:30 | `/compilar` | haiku (barato) |
 | domingo 19:00 | lint (sem IA) | — |
 | domingo 20:00 | `/revisao-semanal` | sonnet |

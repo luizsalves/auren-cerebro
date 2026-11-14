@@ -48,6 +48,12 @@ cp -rn "$KIT/modelo/." "$CEREBRO_DIR/" 2>/dev/null || true
 mkdir -p "$CEREBRO_DIR/.claude"
 cp -r "$KIT/modelo/.claude/rules" "$KIT/modelo/.claude/skills" "$KIT/modelo/.claude/hooks" "$KIT/modelo/.claude/scripts" "$CEREBRO_DIR/.claude/"
 [ -f "$CEREBRO_DIR/.claude/settings.json" ] || cp "$KIT/modelo/.claude/settings.json" "$CEREBRO_DIR/.claude/"
+cp "$KIT/modelo/.claude/motor.env.exemplo" "$CEREBRO_DIR/.claude/"
+[ -f "$CEREBRO_DIR/.claude/motor.env" ] || cp "$KIT/modelo/.claude/motor.env.exemplo" "$CEREBRO_DIR/.claude/motor.env"
+# agentes de sistema (orquestrador, árbitro, _modelo) entram se não existirem; os seus nunca são tocados
+mkdir -p "$CEREBRO_DIR/agentes" "$CEREBRO_DIR/.claude/agentes/logs"
+for a in _modelo orquestrador arbitro; do [ -d "$CEREBRO_DIR/agentes/$a" ] || cp -r "$KIT/modelo/agentes/$a" "$CEREBRO_DIR/agentes/"; done
+cp "$KIT/modelo/agentes/_modelo/agente.md" "$CEREBRO_DIR/agentes/_modelo/agente.md"   # o template acompanha o kit
 chmod +x "$CEREBRO_DIR"/.claude/hooks/* "$CEREBRO_DIR"/.claude/scripts/*
 [ -e "$CEREBRO_DIR/AGENTS.md" ] || ln -s CLAUDE.md "$CEREBRO_DIR/AGENTS.md"
 hoje=$(date +%Y-%m-%d)
@@ -162,6 +168,7 @@ HOME=/root
 EOF
 chmod 644 /etc/cron.d/cerebro
 verde "compilar 23:30 todo dia · domingo: ligar-projetos 18:30, lint 19:00, revisão 20:00"
+bash "$CEREBRO_DIR/.claude/scripts/agendar-agentes.sh" && verde "agentes agendados em /etc/cron.d/cerebro-agentes (orquestrador de hora em hora)"
 [ -x "$CLAUDE_BIN" ] || amarelo "Claude Code não encontrado. Instale com: curl -fsSL https://claude.ai/install.sh | bash  (e faça login rodando: claude)"
 TZ_ATUAL=$(timedatectl show -p Timezone --value 2>/dev/null || echo "?")
 [ "$TZ_ATUAL" = "America/Sao_Paulo" ] || amarelo "Fuso do servidor: $TZ_ATUAL. Para horário de Brasília: timedatectl set-timezone America/Sao_Paulo"
@@ -181,6 +188,7 @@ verde "════════════════════════�
 if [ -n "$DOMINIO" ]; then echo " Painel:  https://$DOMINIO"; else echo " Painel:  http://$IP:$PORTA"; fi
 echo " Pasta:   $CEREBRO_DIR"
 echo " Usar:    cd $CEREBRO_DIR && claude   →  /entrevista para começar"
+echo " Agentes: cd $CEREBRO_DIR && claude → /agentes · /novo-agente <nome> · motor em .claude/motor.env"
 echo " Deploy:  no painel, abra um projeto → botão Deploy (git pull na VPS e na máquina Windows)"
 echo "          Para a máquina Windows: painel → projeto → 'Configurar a máquina Windows'"
 [ -z "$DOMINIO" ] && amarelo " Sem domínio o painel usa HTTP. Para HTTPS: DOMINIO=seu.dominio sudo bash instalar.sh"
