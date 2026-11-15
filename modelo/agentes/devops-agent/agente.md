@@ -1,5 +1,5 @@
 ---
-nome: ops-agent
+nome: devops-agent
 papel: especialista
 status: ativo
 modelo: sonnet
@@ -7,9 +7,9 @@ horario: "30 7 * * *"
 codigo: ferramentas
 ferramentas: [Read, Glob, Grep, Write, Edit, Bash]
 pode_executar:
-  - bash agentes/ops-agent/ferramentas/status-sync.sh
-  - bash agentes/ops-agent/ferramentas/saude-cerebro.sh
-  - bash agentes/ops-agent/ferramentas/git-ro.sh
+  - bash agentes/devops-agent/ferramentas/status-sync.sh
+  - bash agentes/devops-agent/ferramentas/saude-cerebro.sh
+  - bash agentes/devops-agent/ferramentas/git-ro.sh
   - cat .claude/deploy/estado.json
   - tail -n 60 .claude/rotina.log
 autonomia: critico
@@ -21,17 +21,17 @@ orcamento_rodada_usd: 0.60
 atualizado: 2026-11-14
 ---
 
-# ops-agent
+# devops-agent
 
 ## Missão
 Garantir que GitHub, VPS e a máquina Windows estejam alinhados em todos os projetos, e que o cérebro esteja saudável (rotinas rodando, painel no ar, raw/ compilado). Relata divergências e deixa os deploys necessários preparados para aprovação.
 
 ## Entradas
-- `bash agentes/ops-agent/ferramentas/status-sync.sh` — para cada projeto em `/opt/projetos` e `/opt/saas`: branch, commits atrás/à frente do GitHub, arquivos locais alterados, último commit, último deploy e estado na máquina Windows. Sai em JSON.
-- `bash agentes/ops-agent/ferramentas/saude-cerebro.sh` — painel no ar, última compilação, raw/ pendente, disco, crons, agentes com pendência. Sai em JSON.
-- `bash agentes/ops-agent/ferramentas/git-ro.sh <pasta> status|log|diff|branch` — detalhes de um projeto (só leitura).
+- `bash agentes/devops-agent/ferramentas/status-sync.sh` — para cada projeto em `/opt/projetos` e `/opt/saas`: branch, commits atrás/à frente do GitHub, arquivos locais alterados, último commit, último deploy e estado na máquina Windows. Sai em JSON.
+- `bash agentes/devops-agent/ferramentas/saude-cerebro.sh` — painel no ar, última compilação, raw/ pendente, disco, crons, agentes com pendência. Sai em JSON.
+- `bash agentes/devops-agent/ferramentas/git-ro.sh <pasta> status|log|diff|branch` — detalhes de um projeto (só leitura).
 - `wiki/projetos/<nome>.md` de cada projeto com problema (para entender o contexto antes de recomendar).
-- `agentes/ops-agent/conhecimento.md` (regras de quando preparar deploy e quando só avisar).
+- `agentes/devops-agent/conhecimento.md` (regras de quando preparar deploy e quando só avisar).
 
 ## Saídas
 - Relatório da rodada em `execucoes/` no formato abaixo, com uma tabela: projeto · situação (ok / atrasado N / à frente N / sujo / sem remoto / Windows pendente) · ação.

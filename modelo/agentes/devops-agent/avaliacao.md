@@ -1,4 +1,4 @@
-# Avaliação — ops-agent
+# Avaliação — devops-agent
 
 ## Caso: atrasado-limpo
 Entrada: status-sync devolve `elika-tiaras` com situacao "atrasado", atras 2, arquivos_alterados 0, commits_novos_no_github "a1b2c3 corrige carrinho;d4e5f6 novo banner".

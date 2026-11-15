@@ -109,9 +109,9 @@ inacessível). `rodar-agente.sh --testar-isolamento` confere. Métricas de rodad
 custo, tempo, isolamento) em `.claude/agentes/historico.jsonl`; botão **Agentes** no painel e
 `agentes-lib.js desempenho` mostram o quadro.
 
-Vem pronto o **ops-agent** (07:30, autonomia crítica): compara GitHub × VPS × máquina Windows em todos
+Vem pronto o **devops-agent** (07:30, autonomia crítica): compara GitHub × VPS × máquina Windows em todos
 os projetos, confere a saúde do cérebro (painel, compilação, raw pendente, disco, crons) e deixa os
-deploys necessários preparados para aprovação. Ferramentas em `agentes/ops-agent/ferramentas/`.
+deploys necessários preparados para aprovação. Ferramentas em `agentes/devops-agent/ferramentas/`.
 
 **Conhecimento automático dos projetos:** o instalador registra um hook `SessionEnd` no Claude Code
 (`~/.claude/settings.json`). Ao fechar uma sessão dentro de qualquer projeto em `/opt`, um `raw/` com

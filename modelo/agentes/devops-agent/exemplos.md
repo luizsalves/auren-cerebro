@@ -1,4 +1,4 @@
-# Exemplos — ops-agent
+# Exemplos — devops-agent
 
 ## Exemplo 1 — projeto atrasado e limpo
 **Situação:** `zum-web-studio` com `atras: 3`, `arquivos_alterados: 0`, Windows online.

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Saúde do cérebro: painel, última compilação, raw/ pendente, disco, crons, agentes com pendência. Só leitura. Sai em JSON.
-# Uso: bash agentes/ops-agent/ferramentas/saude-cerebro.sh
+# Uso: bash agentes/devops-agent/ferramentas/saude-cerebro.sh
 set -u
 cd "$(dirname "$0")/../../.." || exit 1
 CEREBRO="$(pwd)"

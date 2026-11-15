@@ -5,7 +5,7 @@ description: Cria um agente novo em agentes/<nome> a partir de agentes/_modelo, 
 
 # Novo agente
 
-1. Nome: minúsculas-com-hifens, função primeiro e sufixo `-agent` (ex.: `ops-agent`, `ecac-monitor-agent`). Se já existir `agentes/<nome>/`, pare e sugira `/agente <nome>`.
+1. Nome: minúsculas-com-hifens, função primeiro e sufixo `-agent` (ex.: `devops-agent`, `ecac-monitor-agent`). Se já existir `agentes/<nome>/`, pare e sugira `/agente <nome>`.
 2. Entreviste, uma pergunta por vez, só o que faltar:
    - **Missão** em uma frase (o que ele garante, para quem).
    - **Entradas**: o que lê (páginas da wiki, pastas, comandos, sites/APIs).

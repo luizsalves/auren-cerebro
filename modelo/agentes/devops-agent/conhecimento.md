@@ -1,4 +1,4 @@
-# Conhecimento — ops-agent
+# Conhecimento — devops-agent
 
 ## Regras
 - 2026-11-14 — "Atrasado" = VPS tem menos commits que o GitHub no mesmo branch. Só nesse caso, e com a pasta limpa, prepare deploy.

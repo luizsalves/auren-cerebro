@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Estado de sincronia GitHub × VPS × Windows para cada projeto. Só leitura (git fetch, status, log). Sai em JSON.
-# Uso: bash agentes/ops-agent/ferramentas/status-sync.sh   (PASTAS="/opt/projetos /opt/saas" EXCLUIR="secrets")
+# Uso: bash agentes/devops-agent/ferramentas/status-sync.sh   (PASTAS="/opt/projetos /opt/saas" EXCLUIR="secrets")
 set -u
 cd "$(dirname "$0")/../../.." || exit 1
 CEREBRO="$(pwd)"
