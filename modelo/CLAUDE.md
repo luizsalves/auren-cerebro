@@ -67,7 +67,7 @@ Foco atual: @agora.md
 
 Cada agente é uma pasta em `agentes/` com `agente.md` (frontmatter: papel, status, modelo,
 horário, ferramentas, comandos permitidos, efeitos externos), `conhecimento.md`, `exemplos.md`,
-`avaliacao.md`, `pendencias.md` e `execucoes/`. Quem roda é `.claude/scripts/rodar-agente.sh`,
+`avaliacao.md`, `pendencias.md`, `execucoes/` e `ferramentas/` (o código que ele executa; só eu edito). Quem roda é `.claude/scripts/rodar-agente.sh`,
 o único ponto que fala com o modelo (motor em `.claude/motor.env`: Claude hoje, Ollama quando
 você quiser). Papéis: `orquestrador` despacha, `especialista` executa, `arbitro` julga cada
 rodada. Especialista não chama especialista; ninguém aprova a si mesmo.

@@ -40,6 +40,9 @@ ARBITRO=$(campo arbitro); MAX_TENT=$(campo max_tentativas); MAX_TURNOS=$(campo m
 FERRAMENTAS_CSV=$(campo ferramentas | paste -sd, -)
 mapfile -t PODE < <(campo pode_executar)
 [ -z "$MODELO" ] && MODELO="$MODELO_PADRAO"
+# codigo: relativo = dentro da pasta do agente (ferramentas/); absoluto = produto em /opt (vai para --add-dir)
+if [ -n "$CODIGO" ] && [ "${CODIGO#/}" = "$CODIGO" ]; then CODIGO="$DIR/$CODIGO"; fi
+case "$CODIGO" in "$CEREBRO"/*|agentes/*) CODIGO_EXTRA="" ;; *) CODIGO_EXTRA="$CODIGO" ;; esac
 [ "$MAX_TENT" -ge 1 ] 2>/dev/null || MAX_TENT=1
 [ "$SEM_ARBITRO" = 1 ] && ARBITRO=false
 [ "$PAPEL" != "especialista" ] && ARBITRO=false
@@ -149,7 +152,7 @@ EOF
 CUSTO_TOTAL=0; TURNOS_TOTAL=0; VEREDITO=""; STATUS_FINAL="ok"; FEEDBACK=""; RESULTADO=""
 for ((T=1; T<=MAX_TENT; T++)); do
   PROMPT=$(montar_prompt "$T" "$FEEDBACK")
-  R=$(rodar_motor "$MODELO" "$PROMPT" "$FERRAMENTAS_CSV" "$ALLOWED" "$ORC_RODADA" "$CODIGO" "$MAX_TURNOS")
+  R=$(rodar_motor "$MODELO" "$PROMPT" "$FERRAMENTAS_CSV" "$ALLOWED" "$ORC_RODADA" "$CODIGO_EXTRA" "$MAX_TURNOS")
   RESULTADO=$(j "$R" result); ERRO=$(j "$R" erro)
   CUSTO_TOTAL=$(node -e 'console.log((Number(process.argv[1])+Number(process.argv[2])).toFixed(4))' "$CUSTO_TOTAL" "$(j "$R" custo)")
   TURNOS_TOTAL=$(( TURNOS_TOTAL + $(j "$R" turnos | cut -d. -f1) ))

@@ -10,3 +10,6 @@ CLAUDE.local.md
 .claude/ultimo-inventario-vps
 .claude/agentes/
 .claude/motor.env
+agentes/*/ferramentas/node_modules/
+agentes/*/ferramentas/.env
+agentes/*/ferramentas/*.log

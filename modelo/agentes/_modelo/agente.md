@@ -4,9 +4,9 @@ papel: especialista          # orquestrador | especialista | arbitro
 status: rascunho             # rascunho | ativo | pausado  (só "ativo" roda no cron e por despacho)
 modelo: sonnet               # sonnet | haiku | opus  (com MOTOR=ollama: o nome do modelo no Ollama)
 horario: ""                  # cron de 5 campos, ex.: "0 7 * * 1-5". Vazio = só sob demanda ou por despacho
-codigo: ""                   # pasta do código/ferramentas do agente, ex.: /opt/saas/ecac-monitor
+codigo: ferramentas          # código do agente: "ferramentas" (pasta dentro do agente) ou caminho em /opt (produto com deploy próprio)
 ferramentas: [Read, Glob, Grep, Write, Edit, Bash]   # ferramentas do Claude Code liberadas
-pode_executar: []            # únicos comandos liberados no Bash (prefixos), ex.: ["node /opt/saas/x/consultar.js", "git -C /opt/saas/x log"]
+pode_executar: []            # únicos comandos liberados no Bash (prefixos), ex.: ["node agentes/<nome>/ferramentas/consultar.js"]
 efeitos_externos: nenhum     # nenhum | preparar | executar-com-aprovacao
 arbitro: true                # passa pelo árbitro após cada rodada
 max_tentativas: 2            # refaz 1 vez se o árbitro reprovar

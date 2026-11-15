@@ -12,7 +12,7 @@ DIR="agentes/$NOME"; [ -f "$DIR/avaliacao.md" ] || { echo "sem $DIR/avaliacao.md
 PODE=()
 . "$CEREBRO/.claude/scripts/motor.sh"
 CFG=$(node "$LIB" config "$DIR/agente.md"); MODELO=$(node -e 'console.log(JSON.parse(process.argv[1]).modelo||"")' "$CFG"); [ -n "$MODELO" ] || MODELO="$MODELO_PADRAO"
-CODIGO=$(node -e 'console.log(JSON.parse(process.argv[1]).codigo||"")' "$CFG")
+CODIGO=$(node -e 'console.log(JSON.parse(process.argv[1]).codigo||"")' "$CFG"); case "$CODIGO" in /*) ;; *) CODIGO="" ;; esac
 mkdir -p "$DIR/avaliacoes" .claude/agentes/logs
 ID="$(date +%Y-%m-%d-%H%M)"; SAIDA="$DIR/avaliacoes/$ID.md"; LOG=".claude/agentes/logs/avaliacao-$ID-$NOME.log"; EXEC=/dev/null
 export CEREBRO_AGENTE="$NOME" CEREBRO_RUN="avaliacao-$ID"

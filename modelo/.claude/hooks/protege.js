@@ -37,6 +37,7 @@ process.stdin.on('end', () => {
       if (dono !== agente) bloquear(`agente "${agente}" não mexe na pasta de outro agente (${rel}).`);
       if (/^(agente|conhecimento|exemplos|avaliacao|CHANGELOG)\.md$/.test(resto)) bloquear(`"${resto}" só é editado por você. O agente propõe em agentes/${agente}/pendencias.md.`);
       if (resto.startsWith('avaliacoes/')) bloquear(`avaliacoes/ é gravado só pelo /avaliar.`);
+      if (resto.startsWith('ferramentas/')) bloquear(`o agente não reescreve as próprias ferramentas (${resto}). Proponha a mudança em pendencias.md.`);
       if (resto.startsWith('execucoes/')) {
         const atual = process.env.CEREBRO_EXEC ? path.resolve(raiz, process.env.CEREBRO_EXEC) : '';
         if (atual && abs !== atual) bloquear(`só o arquivo da rodada atual pode ser editado (${path.relative(raiz, atual)}).`);

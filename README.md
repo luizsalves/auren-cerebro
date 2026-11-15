@@ -43,7 +43,7 @@ As suas notas nunca são sobrescritas.
 │   ├── projetos/  clientes/  pessoas/  notas/
 │   └── decisoes.md
 ├── diario/                     AAAA-MM-DD.md + revisões semanais
-├── agentes/                    _modelo/, orquestrador/, arbitro/ e os seus (agente.md, conhecimento, exemplos, avaliacao, pendencias, execucoes/)
+├── agentes/                    _modelo/, orquestrador/, arbitro/ e os seus (agente.md, conhecimento, exemplos, avaliacao, pendencias, execucoes/, ferramentas/)
 ├── _arquivo/                   nada é apagado, vem pra cá
 └── .claude/
     ├── settings.json           hooks
@@ -91,8 +91,9 @@ Roda no instalador e todo domingo 18:30. Na mão:
 
 Cada agente é uma pasta em `/root/cerebro/agentes/<nome>/`: `agente.md` (frontmatter com papel, status,
 modelo, horário, ferramentas, comandos permitidos, efeitos externos, orçamento), `conhecimento.md`,
-`exemplos.md`, `avaliacao.md`, `pendencias.md` e `execucoes/`. Sem código: o código que o agente usa
-fica em `/opt/saas/<nome>/` (campo `codigo:`) e as credenciais em `/etc/cerebro-agentes/<nome>.env`.
+`exemplos.md`, `avaliacao.md`, `pendencias.md`, `execucoes/` e `ferramentas/` (o código que o agente
+executa, um script por ação; `node_modules` fora do git). Um produto com deploy próprio continua em
+`/opt/...` e o campo `codigo:` aponta para ele. Credenciais em `/etc/cerebro-agentes/<nome>.env`.
 
 Papéis: **orquestrador** (Haiku, de hora em hora) lê `raw/` novo e pendências e despacha até 5
 especialistas; **especialista** executa dentro de allowlists; **árbitro** (Haiku, só leitura) julga cada
