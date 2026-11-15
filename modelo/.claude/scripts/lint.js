@@ -22,14 +22,19 @@ const stem = (s) => path.basename(s).replace(/\.md$/i, '').trim().toLowerCase();
 
 const arquivos = listar(raiz);
 const stems = new Set(arquivos.map(stem));
+// agentes/<nome>/agente.md responde por [[nome]] (como no painel); execuções e avaliações não são páginas
+for (const rel of arquivos) { const m = rel.replace(/\\/g, '/').match(/^agentes\/([^/]+)\/agente\.md$/i); if (m) stems.add(m[1].toLowerCase()); }
 const indice = fs.existsSync(path.join(raiz, '_indice.md')) ? fs.readFileSync(path.join(raiz, '_indice.md'), 'utf8') : '';
 const noIndice = new Set([...indice.matchAll(/\[\[([^\]|#]+)/g)].map((m) => stem(m[1])));
 
 const quebrados = [], semFonte = [], parados = [], foraIndice = [];
 const agora = Date.now();
 for (const rel of arquivos) {
+  if (/^agentes\/_modelo\//.test(rel.replace(/\\/g, '/'))) continue; // molde tem links de exemplo
   const txt = fs.readFileSync(path.join(raiz, rel), 'utf8');
-  for (const m of txt.matchAll(/\[\[([^\]|#]+)(?:[#|][^\]]*)?\]\]/g)) {
+  // links dentro de blocos de código, código inline ou comentários HTML são exemplos, não sinapses
+  const semExemplos = txt.replace(/```[\s\S]*?```/g, '').replace(/`[^`\n]*`/g, '').replace(/<!--[\s\S]*?-->/g, '');
+  for (const m of semExemplos.matchAll(/\[\[([^\]|#]+)(?:[#|][^\]]*)?\]\]/g)) {
     if (!stems.has(stem(m[1]))) quebrados.push(`${rel} → [[${m[1]}]]`);
   }
   if (rel.startsWith('wiki/') && rel !== 'wiki/decisoes.md') {

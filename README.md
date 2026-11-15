@@ -131,6 +131,14 @@ No Claude Code: `/agentes`, `/agente <nome>` (situação, rodar, aceitar/rejeita
 agora** com log ao vivo e **Avaliar**. Horários vêm do campo `horario:` e viram
 `/etc/cron.d/cerebro-agentes` (regenerado a cada 30 min por `agendar-agentes.sh`).
 
+### Carga inicial de conhecimento (conteudo/)
+
+`conteudo/` traz páginas de `wiki/projetos/` e arquivos de `raw/` gerados a partir dos repositórios do
+GitHub do Luiz (leitura de README, estrutura, dependências e histórico, 15/11/2026).
+`bash importar-conteudo.sh` copia para o cérebro: raw só se não existir; página nova inteira; página que
+ainda era só o esqueleto do `ligar-projetos.sh` recebe o corpo; página já escrita por você não é tocada
+(o `/compilar` incorpora o raw). Rode uma vez depois do `instalar.sh`.
+
 ### Deploy pelo painel
 
 Ao abrir um projeto no painel aparece o botão **Deploy**: ele roda `.claude/deploy/<slug>.sh`

@@ -1,0 +1,146 @@
+---
+tipo: levantamento
+criado: 2026-11-15T01:00
+fonte: github (luizsalves/auren-template-stack), leitura automática do repositório
+---
+
+# Levantamento do repositório auren-template-stack
+
+Repositório: https://github.com/luizsalves/auren-template-stack
+Lido em 2026-11-15 (clone raso, até 80 commits). Seções: histórico git, árvore, manifestos, README, contagem de arquivos.
+
+```
+## git
+2026-10-30 Merge pull request #1 from luizsalves/feat/template-foundation
+2026-10-30 ci: provision Node for secret scanner positive controls
+2026-10-30 fix: constrain scanner fixture exception and verify positive controls
+2026-10-29 feat: retain E2E screenshots and check develop integration branches
+2026-10-29 fix: preserve LF source formatting across template exports
+2026-10-29 fix: scope scanner exception to the exact synthetic fixture
+2026-10-29 fix: preserve scanner rules in generated repos and run managed verification
+2026-10-29 fix: support isolated verifier database without Docker socket
+2026-10-29 feat: provision users safely with public registration disabled
+2026-10-29 fix: package golden corpus and finalize login foundation
+2026-10-29 feat: add dotnet react postgres foundation with real authentication gates
+2026-10-29 chore: initialize private template repository
+primeiro: 2026-10-29 · total(≤80): 12 · branch: main
+## arvore
+.
+.config
+.config/dotnet-tools.json
+.dockerignore
+.editorconfig
+.env.example
+AGENTS.md
+App.sln
+CLAUDE.md
+Directory.Build.props
+README.md
+backend
+backend/AGENTS.md
+backend/Dockerfile
+backend/src
+backend/tests
+backlog
+backlog/README.md
+database
+database/migrations
+docker-compose.yml
+docs
+docs/AUTENTICACAO.md
+frontend
+frontend/.gitignore
+frontend/.oxlintrc.json
+frontend/AGENTS.md
+frontend/Dockerfile
+frontend/README.md
+frontend/e2e
+frontend/index.html
+frontend/nginx.conf
+frontend/package-lock.json
+frontend/package.json
+frontend/playwright.config.ts
+frontend/public
+frontend/src
+frontend/tsconfig.app.json
+frontend/tsconfig.json
+frontend/tsconfig.node.json
+frontend/vite.config.ts
+knowledge
+knowledge/README.md
+mocks
+mocks/server.mjs
+scripts
+scripts/check.sh
+scripts/e2e.sh
+scripts/secret-scan.sh
+tests
+tests/casos-ouro
+## manifestos
+docker-compose.yml
+## CLAUDE.md
+Leia e siga AGENTS.md na raiz e no diretório em que estiver trabalhando.
+## README (README.md)
+# AUREN Template Stack
+Fundação de sistemas gerados pela AUREN Factory: .NET 10, React/TypeScript,
+PostgreSQL 17, Identity, migrations, testes com banco real e Playwright.
+Implementação em homologação; consulte o CI antes de gerar projetos reais.
+## Desenvolvimento
+Requisitos: .NET SDK 10, Node 24 e Docker. Testes locais, GitHub CI Linux ou
+VPS estão autorizados; usar somente ambientes descartáveis e dados sintéticos.
+```bash
+dotnet restore App.sln --locked-mode
+dotnet tool restore
+npm --prefix frontend ci
+export ConnectionStrings__Database='Host=127.0.0.1;Database=app;Username=app;Password=<secret>'
+export ASPNETCORE_ENVIRONMENT=Development
+export Identity__AllowRegistration=true # somente ambiente descartável
+dotnet run --project backend/src/App.Api -- --migrate
+dotnet run --project backend/src/App.Api --no-launch-profile --urls http://127.0.0.1:5080
+# Em outro shell: npm --prefix frontend run dev
+```
+O login está em `/`; registro de usuários sintéticos usa `/auth/register`
+com o token de `/api/csrf`. Veja [autenticação](docs/AUTENTICACAO.md).
+## Gates
+```bash
+bash scripts/check.sh build
+bash scripts/check.sh lint
+bash scripts/check.sh unit
+bash scripts/check.sh integration
+bash scripts/check.sh golden
+# Com API e banco sintéticos ativos:
+cd frontend && npx playwright install chromium && npm run e2e
+# Com gitleaks instalado:
+bash scripts/check.sh secret-scan
+```
+Integração e golden criam PostgreSQL 17 via Testcontainers por padrão. No
+Verifier da Factory, configure `AUREN_APP_TEST_CONNECTION_STRING` para um
+PostgreSQL descartável acessível, com permissão de criar bancos. Cada execução
+cria e remove somente seu banco `auren_test_<id>`, sem depender do socket Docker.
+O CI valida os dois modos. Os casos-ouro do template não substituem casos de
+negócio fornecidos pelo responsável.
+No Verifier gerenciado (`AUREN_MANAGED_VERIFIER=1`), o gate de build instala
+dependências pelos lockfiles; o E2E migra o banco sintético, inicia a API e a
+encerra ao terminar. `AUREN_SOURCE_SCAN_PATH` deve apontar para a cópia intacta
+dos fontes, montada somente para leitura pelo orquestrador. O scanner verifica
+essa cópia sem precisar receber metadados Git ou percorrer dependências geradas.
+## Containers
+```bash
+# Configure POSTGRES_PASSWORD fora do Git antes de executar.
+docker compose build
+docker compose up -d postgres
+docker compose run --rm api --migrate
+docker compose up -d api frontend
+```
+O frontend fica em `127.0.0.1:8080`. Publicação HTTPS e previews são controlados
+pela fábrica e dependem de aprovação. Este repositório tem CI de testes, sem deploy.
+## docs
+AGENTS.md
+CLAUDE.md
+
+docs:
+AUTENTICACAO.md
+## contagem
+     13 json      11 md       9 cs       5 ts       3 sh       2 yml       2 tsx       2 gitignore 
+
+```
