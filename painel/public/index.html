@@ -170,9 +170,14 @@ dialog textarea:focus{border-color:#4FD1E8}
 
 <dialog id="dlgAg" class="larga">
   <form method="dialog">
-    <div class="row" style="justify-content:space-between;align-items:center">
-      <h3 style="margin:0">Agentes · desempenho</h3>
-      <span class="mono"><label><input type="radio" name="dias" value="7" checked> 7 dias</label> &nbsp; <label><input type="radio" name="dias" value="30"> 30 dias</label></span>
+    <div class="row" style="justify-content:space-between;align-items:center;gap:12px">
+      <h3 style="margin:0">Agentes</h3>
+      <span class="mono">
+        <label><input type="radio" name="vista" value="agente" checked> Catálogo por agente</label> &nbsp;
+        <label><input type="radio" name="vista" value="projeto"> Por projeto</label> &nbsp;
+        <label><input type="radio" name="vista" value="desempenho"> Desempenho</label> &nbsp;|&nbsp;
+        <label><input type="radio" name="dias" value="7" checked> 7 dias</label> &nbsp; <label><input type="radio" name="dias" value="30"> 30 dias</label>
+      </span>
     </div>
     <div id="agTabela" class="agtab"><div class="nada">Carregando…</div></div>
     <div class="acoes"><button class="btn ghost" value="fechar" type="submit">Fechar</button></div>
@@ -554,11 +559,31 @@ function conectar() {
 }
 
 // ---------- Desempenho dos agentes ----------
+const PAPEL_TXT = { orquestrador: 'decide quem roda', especialista: 'executa uma missão', arbitro: 'julga cada rodada' };
+function catalogo(ms, porProjeto) {
+  const linha = (m) => `<tr>
+    <td><b>${esc(m.nome)}</b><br><span class="mono">${esc(m.papel)} · ${esc(PAPEL_TXT[m.papel] || '')}</span></td>
+    <td style="white-space:normal;min-width:260px">${esc(m.missao || '—')}</td>
+    <td>${m.projeto ? esc(m.projeto) : '<span class="mono">cérebro</span>'}</td>
+    <td>${esc(m.status)}</td>
+    <td>${esc(m.autonomia || '')}</td>
+    <td class="mono">${esc(m.horario || 'sob demanda')}</td>
+    <td>${esc(m.modelo)}</td>
+    <td class="mono">${m.ultima ? esc(m.ultima.status) + ' · ' + quando(Date.parse(m.ultima.ts)) : 'nunca'}</td>
+  </tr>`;
+  const cab = '<thead><tr><th>Agente</th><th>O que faz</th><th>Projeto</th><th>Status</th><th>Autonomia</th><th>Horário</th><th>Modelo</th><th>Última rodada</th></tr></thead>';
+  if (!porProjeto) return `<table>${cab}<tbody>${ms.map(linha).join('')}</tbody></table>`;
+  const grupos = {};
+  for (const m of ms) (grupos[m.projeto || '(cérebro)'] = grupos[m.projeto || '(cérebro)'] || []).push(m);
+  return Object.keys(grupos).sort().map((g) => `<h4 style="margin:14px 0 4px;font:600 13px Inter,sans-serif;color:#C9BBFF">${esc(g)} <span class="mono">· ${grupos[g].length} agente(s)</span></h4><table>${cab}<tbody>${grupos[g].map(linha).join('')}</tbody></table>`).join('');
+}
 async function carregarMetricas() {
   const dias = (document.querySelector('#dlgAg input[name=dias]:checked') || {}).value || 7;
+  const vista = (document.querySelector('#dlgAg input[name=vista]:checked') || {}).value || 'agente';
   const box = $('agTabela'); box.innerHTML = '<div class="nada">Carregando…</div>';
   let ms; try { ms = await (await fetch('/api/agentes/metricas?dias=' + dias)).json(); } catch { box.innerHTML = '<div class="nada">Não consegui ler as métricas.</div>'; return; }
   if (!ms.length) { box.innerHTML = '<div class="nada">Nenhum agente em agentes/.</div>'; return; }
+  if (vista !== 'desempenho') { box.innerHTML = catalogo(ms, vista === 'projeto') + '<div class="mono" style="margin-top:8px">Projeto vem do campo <code>projeto:</code> do agente.md. Clique num agente no grafo para abrir, rodar ou avaliar.</div>'; return; }
   const tot = ms.reduce((a, m) => ({ rodadas: a.rodadas + m.rodadas, ok: a.ok + m.ok, custo: a.custo + m.custo_usd, pend: a.pend + m.pendencias_abertas, rep: a.rep + m.reprovado + m.revisar, fal: a.fal + m.falhou + m.bloqueado }), { rodadas: 0, ok: 0, custo: 0, pend: 0, rep: 0, fal: 0 });
   const linha = (m) => `<tr>
     <td><b>${esc(m.nome)}</b><br><span class="mono">${esc(m.papel)} · ${esc(m.status)} · ${esc(m.modelo)}${m.projeto ? ' · ' + esc(m.projeto) : ''}</span></td>
@@ -582,7 +607,7 @@ async function carregarMetricas() {
     <div class="mono" style="margin-top:8px">Acertos = rodadas com status ok no período. Isoladas = rodadas com sandbox de arquivos (systemd-run). Pendências = abertas agora. Clique num agente no grafo para abrir, rodar ou avaliar.</div>`;
 }
 $('btnAgentes').onclick = () => { $('dlgAg').showModal(); carregarMetricas(); };
-document.querySelectorAll('#dlgAg input[name=dias]').forEach((r) => r.addEventListener('change', carregarMetricas));
+document.querySelectorAll('#dlgAg input[name=dias], #dlgAg input[name=vista]').forEach((r) => r.addEventListener('change', carregarMetricas));
 
 function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 2600); }
 

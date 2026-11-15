@@ -139,7 +139,7 @@ function metricas(dias = 7) {
   const lista = listar();
   return lista.map((a) => {
     const m = por[a.nome] || { agente: a.nome, rodadas: 0, ok: 0, reprovado: 0, revisar: 0, falhou: 0, bloqueado: 0, custo_usd: 0, duracao_ms: 0, turnos: 0, isoladas: 0, avaliacoes: [], ultima: null };
-    return { nome: a.nome, papel: a.papel, status: a.status, modelo: a.modelo, horario: a.horario, autonomia: a.autonomia, projeto: a.projeto, pendencias_abertas: a.pendencias_abertas,
+    return { nome: a.nome, papel: a.papel, status: a.status, modelo: a.modelo, horario: a.horario, autonomia: a.autonomia, projeto: a.projeto, missao: a.missao, pendencias_abertas: a.pendencias_abertas,
       rodadas: m.rodadas, ok: m.ok, reprovado: m.reprovado, revisar: m.revisar, falhou: m.falhou, bloqueado: m.bloqueado,
       taxa_ok: m.rodadas ? Math.round((m.ok / m.rodadas) * 100) : null, custo_usd: Number(m.custo_usd.toFixed(4)), custo_medio_usd: m.rodadas ? Number((m.custo_usd / m.rodadas).toFixed(4)) : 0,
       duracao_media_s: m.rodadas ? Math.round(m.duracao_ms / m.rodadas / 1000) : 0, turnos_medio: m.rodadas ? Math.round(m.turnos / m.rodadas) : 0, isoladas: m.isoladas,
