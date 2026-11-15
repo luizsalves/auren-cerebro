@@ -53,6 +53,7 @@ cp "$KIT/modelo/.claude/motor.env.exemplo" "$CEREBRO_DIR/.claude/"
 # agentes de sistema (orquestrador, árbitro, _modelo) entram se não existirem; os seus nunca são tocados
 mkdir -p "$CEREBRO_DIR/agentes" "$CEREBRO_DIR/.claude/agentes/logs"
 for a in _modelo orquestrador arbitro devops-agent; do [ -d "$CEREBRO_DIR/agentes/$a" ] || cp -r "$KIT/modelo/agentes/$a" "$CEREBRO_DIR/agentes/"; done
+[ -f "$CEREBRO_DIR/agentes/_regras.md" ] || cp "$KIT/modelo/agentes/_regras.md" "$CEREBRO_DIR/agentes/"   # regras gerais (só você edita)
 cp "$KIT/modelo/agentes/devops-agent/ferramentas/"*.sh "$CEREBRO_DIR/agentes/devops-agent/ferramentas/" 2>/dev/null || true   # ferramentas do devops-agent acompanham o kit
 chmod +x "$CEREBRO_DIR"/agentes/*/ferramentas/*.sh 2>/dev/null || true
 cp "$KIT/modelo/agentes/_modelo/agente.md" "$CEREBRO_DIR/agentes/_modelo/agente.md"   # o template acompanha o kit

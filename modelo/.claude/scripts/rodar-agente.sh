@@ -127,7 +127,7 @@ Você é o agente "$NOME" do segundo cérebro em $CEREBRO (papel: $PAPEL). Rodad
 
 TAREFA DESTA RODADA: $TAREFA
 
-Antes de agir, leia nesta ordem: $DIR/agente.md, $DIR/conhecimento.md, $DIR/exemplos.md, $DIR/pendencias.md.
+Antes de agir, leia nesta ordem: $( [ -f agentes/_regras.md ] && printf 'agentes/_regras.md (regras gerais e de funcionamento — valem acima de tudo), ' )$DIR/agente.md, $DIR/conhecimento.md, $DIR/exemplos.md, $DIR/pendencias.md.
 Siga o Procedimento e respeite os Limites do agente.md.
 
 Regras da rodada (aplicadas também por hook e permissões; não tente contornar):

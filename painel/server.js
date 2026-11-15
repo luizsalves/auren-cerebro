@@ -337,6 +337,56 @@ function detalheAgente(nome) {
     motor: (() => { try { const m = fs.readFileSync(path.join(CEREBRO, '.claude', 'motor.env'), 'utf8').match(/^MOTOR=(\S+)/m); return m ? m[1] : 'claude'; } catch { return 'claude'; } })(),
   };
 }
+// insere `linha` no fim da seção `## secao` de um markdown (cria a seção se não existir); remove marcadores "- " vazios
+function inserirNaSecao(t, secao, linha) {
+  const linhas = t.replace(/\r/g, '').split('\n');
+  let ini = linhas.findIndex((l) => l.trim() === '## ' + secao);
+  if (ini === -1) { while (linhas.length && linhas[linhas.length - 1].trim() === '') linhas.pop(); linhas.push('', '## ' + secao, linha); return linhas.join('\n') + '\n'; }
+  let fim = linhas.findIndex((l, i) => i > ini && /^## /.test(l)); if (fim === -1) fim = linhas.length;
+  const corpo = linhas.slice(ini + 1, fim).filter((l) => l.trim() !== '' && l.trim() !== '-');
+  const resto = linhas.slice(fim);
+  return [...linhas.slice(0, ini + 1), ...corpo, linha, ''].concat(resto).join('\n').replace(/\n{3,}/g, '\n\n').replace(/\s*$/, '\n');
+}
+// Regra, exemplo ou aprendizado digitado no painel → conhecimento.md / exemplos.md do agente (com data e fonte)
+function gravarRegra(nome, tipo, texto, destino) {
+  texto = String(texto || '').trim().replace(/\r/g, '');
+  if (texto.length < 3) throw Object.assign(new Error('texto vazio'), { status: 400 });
+  const d = new Date(); const p = (n) => String(n).padStart(2, '0');
+  const hoje = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  // regras gerais (todos os agentes) e de funcionamento (harness) vão para agentes/_regras.md, lido em toda rodada
+  if (destino === 'todos' || destino === 'harness') {
+    const arquivo = path.join(CEREBRO, 'agentes', '_regras.md');
+    const secao = destino === 'todos' ? 'Para todos os agentes' : 'Funcionamento dos agentes (harness)';
+    let t = fs.existsSync(arquivo) ? fs.readFileSync(arquivo, 'utf8') : '# Regras gerais dos agentes\n\nLido em toda rodada, antes do agente.md de cada agente. Só você edita (painel → Agentes → Ensinar, ou à mão).\n\n## Para todos os agentes\n\n## Funcionamento dos agentes (harness)\n';
+    const linha = `- ${hoje} — ${texto.replace(/\n+/g, ' ')} (fonte: painel)`;
+    fs.writeFileSync(arquivo, inserirNaSecao(t, secao, linha));
+    try { execFileSync('git', ['add', '-A'], { cwd: CEREBRO }); execFileSync('git', ['-c', 'user.name=painel', '-c', 'user.email=painel@localhost', 'commit', '-q', '-m', `agentes/_regras.md: ${destino} pelo painel`], { cwd: CEREBRO }); } catch {}
+    diario(`regra ${destino === 'todos' ? 'para todos os agentes' : 'de funcionamento dos agentes'} adicionada pelo painel`);
+    return { arquivo: 'agentes/_regras.md' };
+  }
+  if (!slugValido(nome)) throw Object.assign(new Error('nome inválido'), { status: 400 });
+  const dir = path.join(CEREBRO, 'agentes', nome);
+  if (!fs.existsSync(path.join(dir, 'agente.md'))) throw Object.assign(new Error('agente não existe'), { status: 404 });
+  const secao = { regra: 'Regras', aprendizado: 'Aprendizados', erro: 'Erros conhecidos e como contornar' }[tipo];
+  let arquivo, linha;
+  if (tipo === 'exemplo') {
+    arquivo = path.join(dir, 'exemplos.md');
+    const partes = texto.split(/\n\s*\n/);
+    linha = `\n## Exemplo — ${hoje} (painel)\n` + (partes.length >= 2 ? `**Situação:** ${partes[0].trim()}\n**O que fazer:** ${partes.slice(1).join(' ').trim()}\n` : `${texto}\n`);
+    fs.appendFileSync(arquivo, linha);
+  } else if (secao) {
+    arquivo = path.join(dir, 'conhecimento.md');
+    linha = `- ${hoje} — ${texto.replace(/\n+/g, ' ')} (fonte: painel)`;
+    const t = fs.existsSync(arquivo) ? fs.readFileSync(arquivo, 'utf8') : '# Conhecimento\n';
+    fs.writeFileSync(arquivo, inserirNaSecao(t, secao, linha));
+  } else throw Object.assign(new Error('tipo inválido'), { status: 400 });
+  try { fs.appendFileSync(path.join(dir, 'CHANGELOG.md'), `- ${hoje} — ${tipo} adicionado pelo painel: ${texto.slice(0, 80).replace(/\n/g, ' ')}${texto.length > 80 ? '…' : ''}\n`); } catch {}
+  try { execFileSync('git', ['add', '-A'], { cwd: CEREBRO }); execFileSync('git', ['-c', 'user.name=painel', '-c', 'user.email=painel@localhost', 'commit', '-q', '-m', `${nome}: ${tipo} pelo painel`], { cwd: CEREBRO }); } catch {}
+  diario(`${tipo} adicionado ao agente [[${nome}]] pelo painel`);
+  emitir('agente', { nome, rodando: false });
+  return { arquivo: path.relative(CEREBRO, arquivo) };
+}
+
 function iniciarAgente(nome, acao, tarefa) {
   if (!slugValido(nome)) throw Object.assign(new Error('nome inválido'), { status: 400 });
   if (!fs.existsSync(path.join(CEREBRO, 'agentes', nome, 'agente.md'))) throw Object.assign(new Error('agente não existe'), { status: 404 });
@@ -493,6 +543,11 @@ ${String(log || '').slice(-6000)}
       const nome = url.searchParams.get('nome');
       if (!slugValido(nome)) return enviar(res, 400, { erro: 'nome inválido' });
       return enviar(res, 200, detalheAgente(nome));
+    }
+    if (url.pathname === '/api/agentes/regra' && req.method === 'POST') {
+      const { nome, tipo, texto, destino } = JSON.parse((await lerCorpo(req, 20000)) || '{}');
+      try { return enviar(res, 200, { ok: true, ...gravarRegra(nome, tipo, texto, destino) }); }
+      catch (e) { return enviar(res, e.status || 500, { erro: e.message }); }
     }
     if ((url.pathname === '/api/agentes/rodar' || url.pathname === '/api/agentes/avaliar') && req.method === 'POST') {
       const { nome, tarefa } = JSON.parse((await lerCorpo(req)) || '{}');

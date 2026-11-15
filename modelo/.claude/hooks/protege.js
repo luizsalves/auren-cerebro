@@ -31,6 +31,7 @@ process.stdin.on('end', () => {
   if (agente) {
     if (rel.startsWith('..')) bloquear(`agente "${agente}" não escreve fora do cérebro (${rel}).`);
     if (/^(identidade\/|CLAUDE\.md$|AGENTS\.md$|\.claude\/)/.test(rel)) bloquear(`agente "${agente}" não pode editar "${rel}".`);
+    if (/^agentes\/_[^/]*$/.test(rel)) bloquear(`"${rel}" (regras gerais) só é editado por você.`);
     const m = rel.match(/^agentes\/([^/]+)\/(.*)$/);
     if (m) {
       const [, dono, resto] = m;

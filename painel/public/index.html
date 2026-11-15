@@ -178,9 +178,34 @@ dialog textarea:focus{border-color:#4FD1E8}
         <label><input type="radio" name="vista" value="desempenho"> Desempenho</label> &nbsp;|&nbsp;
         <label><input type="radio" name="dias" value="7" checked> 7 dias</label> &nbsp; <label><input type="radio" name="dias" value="30"> 30 dias</label>
       </span>
+      <button type="button" class="btn ghost" style="padding:6px 10px;font-size:12px" onclick="abrirRegra('todos'); document.querySelector('#dlgRegra input[name=destRegra][value=todos]').checked = true; dicaRegra();">+ Regra geral</button>
     </div>
     <div id="agTabela" class="agtab"><div class="nada">Carregando…</div></div>
     <div class="acoes"><button class="btn ghost" value="fechar" type="submit">Fechar</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlgRegra">
+  <form method="dialog" id="formRegra">
+    <h3>Ensinar <span id="regraAgente"></span></h3>
+    <div class="row" style="margin:10px 0">
+      <label class="mono"><input type="radio" name="destRegra" value="agente" checked> só este agente</label>
+      <label class="mono"><input type="radio" name="destRegra" value="todos"> todos os agentes</label>
+      <label class="mono"><input type="radio" name="destRegra" value="harness"> funcionamento (harness)</label>
+    </div>
+    <p class="mono" id="regraDica">Vai para <code>conhecimento.md</code> do agente, com data. Vale na próxima rodada.</p>
+    <div class="row" style="margin:10px 0" id="tiposRegra">
+      <label class="mono"><input type="radio" name="tipoRegra" value="regra" checked> Regra</label>
+      <label class="mono"><input type="radio" name="tipoRegra" value="aprendizado"> Aprendizado</label>
+      <label class="mono"><input type="radio" name="tipoRegra" value="erro"> Erro conhecido</label>
+      <label class="mono"><input type="radio" name="tipoRegra" value="exemplo"> Exemplo</label>
+    </div>
+    <label for="txtRegra" class="sr">Texto</label>
+    <textarea id="txtRegra" placeholder="Ex.: projeto com pasta secrets/ alterada nunca entra em deploy; avisar.&#10;&#10;Exemplo: primeiro parágrafo = situação, segundo = o que fazer. (Ctrl+Enter salva)"></textarea>
+    <div class="acoes">
+      <button class="btn ghost" value="cancelar" type="submit" formnovalidate>Cancelar</button>
+      <button class="btn" id="btnSalvarRegra" type="button">Salvar</button>
+    </div>
   </form>
 </dialog>
 
@@ -463,6 +488,7 @@ async function carregarAgente(nome) {
     <div class="row">
       <button type="button" class="btn deploy" id="btnAgRodar" ${d.rodando || c.papel === 'arbitro' ? 'disabled' : ''}>${d.rodando ? 'Rodando…' : 'Rodar agora'}</button>
       <button type="button" class="btn ghost" id="btnAgAvaliar" ${d.rodando ? 'disabled' : ''}>Avaliar</button>
+      <button type="button" class="btn ghost" onclick="abrirRegra('${esc(nome)}')">+ Ensinar</button>
       ${c.avaliacao ? `<span class="st ${c.avaliacao.media >= 7 ? 'ok' : 'err'}"><i></i>avaliação ${c.avaliacao.media}/10</span>` : (e.avaliacao ? `<span class="st ${e.avaliacao.media >= 7 ? 'ok' : 'err'}"><i></i>avaliação ${e.avaliacao.media}/10</span>` : '')}
     </div>
     ${d.rodando ? `<pre>${esc(d.rodando.log || '…')}</pre>` : ''}
@@ -570,8 +596,9 @@ function catalogo(ms, porProjeto) {
     <td class="mono">${esc(m.horario || 'sob demanda')}</td>
     <td>${esc(m.modelo)}</td>
     <td class="mono">${m.ultima ? esc(m.ultima.status) + ' · ' + quando(Date.parse(m.ultima.ts)) : 'nunca'}</td>
+    <td><button type="button" class="btn ghost" style="padding:6px 10px;font-size:12px" onclick="abrirRegra('${esc(m.nome)}')">+ Ensinar</button></td>
   </tr>`;
-  const cab = '<thead><tr><th>Agente</th><th>O que faz</th><th>Projeto</th><th>Status</th><th>Autonomia</th><th>Horário</th><th>Modelo</th><th>Última rodada</th></tr></thead>';
+  const cab = '<thead><tr><th>Agente</th><th>O que faz</th><th>Projeto</th><th>Status</th><th>Autonomia</th><th>Horário</th><th>Modelo</th><th>Última rodada</th><th></th></tr></thead>';
   if (!porProjeto) return `<table>${cab}<tbody>${ms.map(linha).join('')}</tbody></table>`;
   const grupos = {};
   for (const m of ms) (grupos[m.projeto || '(cérebro)'] = grupos[m.projeto || '(cérebro)'] || []).push(m);
@@ -607,6 +634,34 @@ async function carregarMetricas() {
     <div class="mono" style="margin-top:8px">Acertos = rodadas com status ok no período. Isoladas = rodadas com sandbox de arquivos (systemd-run). Pendências = abertas agora. Clique num agente no grafo para abrir, rodar ou avaliar.</div>`;
 }
 $('btnAgentes').onclick = () => { $('dlgAg').showModal(); carregarMetricas(); };
+
+// ---------- Ensinar (regra / aprendizado / erro / exemplo) ----------
+function abrirRegra(nome) {
+  $('regraAgente').textContent = nome; $('dlgRegra').dataset.nome = nome; $('txtRegra').value = '';
+  document.querySelector('#dlgRegra input[name=destRegra][value=agente]').checked = true; dicaRegra();
+  $('dlgRegra').showModal(); setTimeout(() => $('txtRegra').focus(), 50);
+}
+function dicaRegra() {
+  const dest = (document.querySelector('#dlgRegra input[name=destRegra]:checked') || {}).value || 'agente';
+  const v = (document.querySelector('#dlgRegra input[name=tipoRegra]:checked') || {}).value || 'regra';
+  $('tiposRegra').style.display = dest === 'agente' ? '' : 'none';
+  if (dest === 'todos') $('regraDica').innerHTML = 'Vai para <code>agentes/_regras.md</code> (seção <b>Para todos os agentes</b>): todo agente lê antes de agir. Ex.: "nunca gravar CPF em arquivo nenhum".';
+  else if (dest === 'harness') $('regraDica').innerHTML = 'Vai para <code>agentes/_regras.md</code> (seção <b>Funcionamento</b>): regras de como as rodadas funcionam. Ex.: "toda ação externa fica preparada até eu aprovar". Limites técnicos (orçamento, isolamento, horários) continuam em <code>motor.env</code> e no <code>agente.md</code>.';
+  else $('regraDica').innerHTML = v === 'exemplo' ? 'Vai para <code>exemplos.md</code>: primeiro parágrafo = situação, segundo = o que fazer.' : `Vai para a seção <b>${{ regra: 'Regras', aprendizado: 'Aprendizados', erro: 'Erros conhecidos' }[v]}</b> de <code>conhecimento.md</code>, com data. Vale na próxima rodada.`;
+}
+document.querySelectorAll('#dlgRegra input[name=tipoRegra], #dlgRegra input[name=destRegra]').forEach((r) => r.addEventListener('change', dicaRegra));
+async function salvarRegra() {
+  const nome = $('dlgRegra').dataset.nome, texto = $('txtRegra').value.trim();
+  const tipo = (document.querySelector('#dlgRegra input[name=tipoRegra]:checked') || {}).value || 'regra';
+  const destino = (document.querySelector('#dlgRegra input[name=destRegra]:checked') || {}).value || 'agente';
+  if (texto.length < 3) { toast('Escreva a regra primeiro'); return; }
+  $('btnSalvarRegra').disabled = true;
+  try { const r = await fetch('/api/agentes/regra', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome, tipo, texto, destino }) }); const j = await r.json(); if (!r.ok) throw new Error(j.erro || 'falhou'); toast('Salvo em ' + j.arquivo); $('dlgRegra').close(); const box = $('ag'); if (box && box.dataset.nome === nome) carregarAgente(nome); }
+  catch (e) { toast('Não salvou: ' + e.message); }
+  finally { $('btnSalvarRegra').disabled = false; }
+}
+$('btnSalvarRegra').onclick = salvarRegra;
+$('txtRegra').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); salvarRegra(); } });
 document.querySelectorAll('#dlgAg input[name=dias], #dlgAg input[name=vista]').forEach((r) => r.addEventListener('change', carregarMetricas));
 
 function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 2600); }

@@ -73,7 +73,8 @@ você quiser). Papéis: `orquestrador` despacha, `especialista` executa, `arbitr
 rodada. Especialista não chama especialista; ninguém aprova a si mesmo. Autonomia por agente:
 `leitura` (relata), `reversivel` (altera o desfazível e registra como reverter), `critico` (prepara,
 eu aprovo). Rodada automática roda isolada (systemd-run): escreve só na execução, em pendências,
-em raw/ e nos caminhos de `escreve_em:`. O `devops-agent` (incluído) vigia GitHub × VPS × Windows e a
+em raw/ e nos caminhos de `escreve_em:`. Regras gerais e de funcionamento em `agentes/_regras.md` (lido em toda rodada; só eu edito, pelo
+painel ou à mão). O `devops-agent` (incluído) vigia GitHub × VPS × Windows e a
 saúde deste cérebro. Sessões do Claude Code em projetos de /opt viram `raw/` automaticamente (hook
 SessionEnd) e cada projeto tem um CLAUDE.md apontando para a página dele aqui.
 

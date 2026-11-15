@@ -126,6 +126,11 @@ gastar). Orçamento diário (`ORCAMENTO_DIA_USD`) e por rodada (`orcamento_rodad
 quando estouram. O hook `protege.js` impede o agente de editar o próprio conhecimento, `identidade/`,
 `CLAUDE.md`, `.claude/` e `raw/` existente.
 
+**Ensinar pelo painel:** Agentes → **+ Ensinar** (por agente: regra, aprendizado, erro conhecido ou exemplo →
+`conhecimento.md` / `exemplos.md`) ou **+ Regra geral** (para todos os agentes ou de funcionamento/harness →
+`agentes/_regras.md`, lido em toda rodada antes do `agente.md`). Tudo com data, fonte e commit; só você edita
+esses arquivos — o hook bloqueia os agentes.
+
 No Claude Code: `/agentes`, `/agente <nome>` (situação, rodar, aceitar/rejeitar pendências, avaliar),
 `/novo-agente <nome>`, `/avaliar <nome>`, `/despachar`. No painel: lobo **Agentes**, botão **Rodar
 agora** com log ao vivo e **Avaliar**. Horários vêm do campo `horario:` e viram
