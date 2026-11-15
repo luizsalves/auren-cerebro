@@ -484,6 +484,11 @@ ${String(log || '').slice(-6000)}
     }
     // ---------- agentes do cérebro (pasta agentes/) ----------
     if (url.pathname === '/api/agentes') return enviar(res, 200, listarAgentes());
+    if (url.pathname === '/api/agentes/metricas') {
+      const dias = Math.min(365, Math.max(1, Number(url.searchParams.get('dias')) || 7));
+      try { return enviar(res, 200, JSON.parse(execFileSync(process.execPath, [AGENTES_LIB, 'metricas', String(dias)], { cwd: CEREBRO, encoding: 'utf8', timeout: 10000 }))); }
+      catch (e) { return enviar(res, 500, { erro: e.message }); }
+    }
     if (url.pathname === '/api/agentes/detalhe') {
       const nome = url.searchParams.get('nome');
       if (!slugValido(nome)) return enviar(res, 400, { erro: 'nome inválido' });

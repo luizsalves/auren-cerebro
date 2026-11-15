@@ -70,7 +70,12 @@ horário, ferramentas, comandos permitidos, efeitos externos), `conhecimento.md`
 `avaliacao.md`, `pendencias.md`, `execucoes/` e `ferramentas/` (o código que ele executa; só eu edito). Quem roda é `.claude/scripts/rodar-agente.sh`,
 o único ponto que fala com o modelo (motor em `.claude/motor.env`: Claude hoje, Ollama quando
 você quiser). Papéis: `orquestrador` despacha, `especialista` executa, `arbitro` julga cada
-rodada. Especialista não chama especialista; ninguém aprova a si mesmo.
+rodada. Especialista não chama especialista; ninguém aprova a si mesmo. Autonomia por agente:
+`leitura` (relata), `reversivel` (altera o desfazível e registra como reverter), `critico` (prepara,
+eu aprovo). Rodada automática roda isolada (systemd-run): escreve só na execução, em pendências,
+em raw/ e nos caminhos de `escreve_em:`. O `ops-agent` (incluído) vigia GitHub × VPS × Windows e a
+saúde deste cérebro. Sessões do Claude Code em projetos de /opt viram `raw/` automaticamente (hook
+SessionEnd) e cada projeto tem um CLAUDE.md apontando para a página dele aqui.
 
 ## Painel
 

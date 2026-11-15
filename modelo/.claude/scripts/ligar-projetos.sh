@@ -253,6 +253,28 @@ if [ -f CLAUDE.md ]; then
   rm -f "$bloco"
 fi
 
+# ---------- 7b. CLAUDE.md em cada projeto apontando para a página dele no cérebro ----------
+# Só cria se não existir; fica fora do git do projeto (.git/info/exclude). Assim, abrir o Claude Code no código também carrega o cérebro.
+for i in "${!NOMES[@]}"; do
+  d="${CAMINHOS[$i]}"; s="${SLUGS[$i]}"
+  [ -w "$d" ] || continue
+  if [ ! -f "$d/CLAUDE.md" ]; then
+    cat > "$d/CLAUDE.md" <<EOF2
+# ${NOMES[$i]}
+
+Contexto deste projeto no meu segundo cérebro (leia antes de trabalhar):
+@$CEREBRO/wiki/projetos/$s.md
+
+Regras: ao fim de uma sessão com trabalho real, o resumo vai automaticamente para o cérebro (hook SessionEnd).
+Decisões importantes deste projeto: registre em $CEREBRO/raw/ (comando /capturar no cérebro) ou no commit.
+EOF2
+    echo "CLAUDE.md criado em $d"
+  fi
+  if [ -d "$d/.git" ] && ! grep -qx 'CLAUDE.md' "$d/.git/info/exclude" 2>/dev/null; then
+    mkdir -p "$d/.git/info" && echo 'CLAUDE.md' >> "$d/.git/info/exclude"
+  fi
+done
+
 # ---------- 8. scripts de deploy (.claude/deploy/<slug>.sh) ----------
 # Gerados uma vez a partir da stack detectada; depois são seus (não são sobrescritos).
 mkdir -p .claude/deploy/logs

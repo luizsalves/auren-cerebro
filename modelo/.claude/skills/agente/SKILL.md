@@ -18,6 +18,7 @@ Argumento: o nome da pasta em `agentes/`. Sem argumento, rode `/agentes` e pergu
 - **rejeitar pendência N**: marque `[x]` e acrescente ` — rejeitado: <motivo>`.
 - **aprovar o que ficou preparado**: você NÃO executa o efeito externo; mostre o texto preparado e diga como executar (ou qual comando/arquivo em `/opt`). Registre a aprovação no `diario/`.
 - **avaliar**: `bash .claude/scripts/avaliar-agente.sh <nome>` e resuma a média e os casos com nota < 7.
+- **mudar autonomia** (`leitura` → `critico` → `reversivel`): edite `autonomia:` em `agente.md`; para `reversivel`, preencha `escreve_em:` com as pastas que ele pode alterar e registre no `CHANGELOG.md` por que você confiou.
 - **pausar / ativar**: troque `status:` no frontmatter de `agente.md` e rode `sudo bash .claude/scripts/agendar-agentes.sh` (se não for root, avise que o cron atualiza em até 30 min).
 - **editar missão/limites/conhecimento**: edite o arquivo pedido, atualize `atualizado:` e `CHANGELOG.md`.
 

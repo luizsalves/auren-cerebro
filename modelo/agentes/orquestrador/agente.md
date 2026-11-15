@@ -7,7 +7,7 @@ horario: "0 * * * *"
 codigo: ""
 ferramentas: [Read, Glob, Grep, Bash]
 pode_executar: ["git log", "git status", "find raw", "ls", "date", "cat .claude/agentes/estado.json"]
-efeitos_externos: nenhum
+autonomia: leitura
 arbitro: false
 max_tentativas: 1
 max_turnos: 15

@@ -24,7 +24,18 @@ for a in "$@"; do
     *) TAREFA="$a" ;;
   esac
 done
-[ -n "$NOME" ] || { echo "uso: rodar-agente.sh <nome> [tarefa]"; exit 1; }
+if [ "$NOME" = "--testar-isolamento" ]; then
+  LIB="$CEREBRO/.claude/scripts/agentes-lib.js"; . "$CEREBRO/.claude/scripts/motor.sh"
+  mkdir -p .claude/agentes; EXEC=".claude/agentes/teste-isolamento.md"; DIR="agentes/_modelo"; AUTONOMIA=leitura; LOG=.claude/agentes/agentes.log
+  if ! isolamento_disponivel; then echo "isolamento INDISPONÍVEL (systemd-run ausente ou systemd não está rodando; ISOLAMENTO=$ISOLAMENTO)"; exit 1; fi
+  t=$(mktemp); isolar "$(rw_da_rodada)" -- bash -c 'r=""; (echo x > /etc/teste-cerebro) 2>/dev/null && r="$r ESCREVEU_EM_ETC"; (echo x >> "$0") 2>/dev/null && r="$r execucao_ok"; (ls /etc/cerebro-agentes) >/dev/null 2>&1 && r="$r LEU_SEGREDOS"; (echo x > "$1/CLAUDE.md.teste") 2>/dev/null && r="$r ESCREVEU_NO_CEREBRO"; echo "$r"' "$CEREBRO/$EXEC" "$CEREBRO" > "$t" 2>&1; rc=$?
+  res=$(cat "$t"); rm -f "$t" "$CEREBRO/$EXEC" "$CEREBRO/CLAUDE.md.teste" /etc/teste-cerebro 2>/dev/null
+  echo "resultado (rc=$rc): $res"
+  case "$res" in *execucao_ok*) ;; *) echo "FALHOU: não conseguiu escrever no arquivo de execução"; exit 1 ;; esac
+  case "$res" in *ESCREVEU_EM_ETC*|*LEU_SEGREDOS*|*ESCREVEU_NO_CEREBRO*) echo "FALHOU: o sandbox deixou passar algo"; exit 1 ;; esac
+  echo "isolamento OK: escreve só na execução; /etc, segredos e o resto do cérebro protegidos"; exit 0
+fi
+[ -n "$NOME" ] || { echo "uso: rodar-agente.sh <nome> [tarefa] | --testar-isolamento"; exit 1; }
 DIR="agentes/$NOME"
 [ -f "$DIR/agente.md" ] || { echo "agente não existe: $DIR/agente.md"; exit 1; }
 command -v node >/dev/null || { echo "node não encontrado"; exit 1; }
@@ -37,6 +48,10 @@ CFG=$(node "$LIB" config "$DIR/agente.md") || exit 1
 campo() { node -e 'const c=JSON.parse(process.argv[1]);const v=c[process.argv[2]];console.log(Array.isArray(v)?v.join("\n"):(v??""))' "$CFG" "$1"; }
 PAPEL=$(campo papel); STATUS=$(campo status); MODELO=$(campo modelo); CODIGO=$(campo codigo)
 ARBITRO=$(campo arbitro); MAX_TENT=$(campo max_tentativas); MAX_TURNOS=$(campo max_turnos); ORC_RODADA=$(campo orcamento_rodada_usd)
+AUTONOMIA=$(campo autonomia); EFEITOS=$(campo efeitos_externos)
+case "$AUTONOMIA" in leitura|reversivel|critico) ;; *) case "$EFEITOS" in nenhum) AUTONOMIA=leitura ;; *) AUTONOMIA=critico ;; esac ;; esac
+mapfile -t ESCREVE_EM < <(campo escreve_em)   # caminhos fora do cérebro onde as ferramentas precisam escrever (ex.: .git dos projetos para o fetch)
+export AUTONOMIA
 FERRAMENTAS_CSV=$(campo ferramentas | paste -sd, -)
 mapfile -t PODE < <(campo pode_executar)
 [ -z "$MODELO" ] && MODELO="$MODELO_PADRAO"
@@ -122,7 +137,11 @@ $PODE_TXT
 - Não edite: $DIR/agente.md, conhecimento.md, exemplos.md, avaliacao.md, identidade/, CLAUDE.md, .claude/ e arquivos já existentes em raw/.
 - Fato novo e durável (sobre cliente, projeto, pessoa, regra) → crie raw/$(date +%Y-%m-%d-%H%M)-<assunto>.md com frontmatter (tipo: captura, criado: $(date -Is), fonte: agente $NOME).
 - Melhoria no seu próprio comportamento → acrescente "- [ ] $(date +%F) [$RUN_ID] <proposta>" em $DIR/pendencias.md. Não edite conhecimento.md.
-- Efeito externo (enviar mensagem/e-mail, agir num sistema, cobrar alguém): NÃO execute. Descreva em "Preparado para aprovação".
+$(case "$AUTONOMIA" in
+  leitura) echo '- Autonomia LEITURA: você só lê, analisa e relata. Não altera nada fora do arquivo de execução, de pendencias.md e de arquivos novos em raw/.' ;;
+  reversivel) echo "- Autonomia REVERSÍVEL: você pode executar os comandos permitidos e alterar arquivos nos caminhos liberados ($(printf '%s ' "${ESCREVE_EM[@]}")wiki/ e diario/ do cérebro), desde que seja desfazível. Toda alteração entra numa seção '## Como reverter' do relatório, com o comando exato (git revert/checkout, etc.). Nada de apagar, pagar, enviar mensagem ou alterar produção." ;;
+  critico) echo '- Autonomia CRÍTICA: ações com efeito externo (deploy, exclusão, pagamento, mensagem, alteração em sistema) NÃO são executadas por você. Prepare-as em "Preparado para aprovação", com o comando ou o botão exato que o usuário vai usar.' ;;
+esac)
 - Nada de dado sensível (documentos, senhas, dados bancários, extratos) em arquivo nenhum: só o status/resumo.
 EOF
   if [ "$PAPEL" = "especialista" ]; then
@@ -230,10 +249,12 @@ FIM_MS=$(date +%s000)
   echo; echo "## Rodada"
   echo "- status: $STATUS_FINAL${VEREDITO:+ · veredito: $VEREDITO}"
   echo "- tentativas: $T · turnos: $TURNOS_TOTAL · custo: US\$ $CUSTO_TOTAL · duração: $(( (FIM_MS - INICIO_MS) / 1000 ))s"
+  echo "- autonomia: $AUTONOMIA · isolamento: $([ "$ISOLADO_REAL" = 1 ] && echo "sim (systemd-run)" || echo "NÃO — rodada sem sandbox de arquivos")"
   [ "$PAPEL" = orquestrador ] && echo "- despachados: $DESPACHADOS"
   echo "- log: $LOG"
 } >> "$EXEC"
 node "$LIB" custo-add "$CUSTO_TOTAL" >/dev/null
+node -e 'console.log(JSON.stringify({ts:new Date().toISOString(),tipo:"rodada",agente:process.argv[1],run_id:process.argv[2],gatilho:process.argv[3],status:process.argv[4],veredito:process.argv[5],custo_usd:Number(process.argv[6]),turnos:Number(process.argv[7]),duracao_ms:Number(process.argv[8]),tentativas:Number(process.argv[9]),despachados:Number(process.argv[10]),isolado:process.argv[11]==="1",autonomia:process.argv[12]}))' "$NOME" "$RUN_ID" "$GATILHO" "$STATUS_FINAL" "$VEREDITO" "$CUSTO_TOTAL" "$TURNOS_TOTAL" "$((FIM_MS - INICIO_MS))" "$T" "$DESPACHADOS" "$ISOLADO_REAL" "$AUTONOMIA" >> .claude/agentes/historico.jsonl
 node "$LIB" estado-set "$NOME" "{\"fim\":$FIM_MS,\"status\":\"$STATUS_FINAL\",\"veredito\":\"$VEREDITO\",\"custo_usd\":$CUSTO_TOTAL,\"turnos\":$TURNOS_TOTAL,\"tentativas\":$T,\"duracao_ms\":$((FIM_MS - INICIO_MS))}"
 
 # diário

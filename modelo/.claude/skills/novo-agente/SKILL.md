@@ -5,12 +5,14 @@ description: Cria um agente novo em agentes/<nome> a partir de agentes/_modelo, 
 
 # Novo agente
 
-1. Nome: minúsculas-com-hifens (ex.: `ecac-monitor`). Se já existir `agentes/<nome>/`, pare e sugira `/agente <nome>`.
+1. Nome: minúsculas-com-hifens, função primeiro e sufixo `-agent` (ex.: `ops-agent`, `ecac-monitor-agent`). Se já existir `agentes/<nome>/`, pare e sugira `/agente <nome>`.
 2. Entreviste, uma pergunta por vez, só o que faltar:
    - **Missão** em uma frase (o que ele garante, para quem).
    - **Entradas**: o que lê (páginas da wiki, pastas, comandos, sites/APIs).
    - **Saídas**: o que produz; o que deve ficar "preparado para aprovação".
    - **Limites**: o que nunca pode fazer.
+   - **Autonomia**: `leitura` (só lê e relata), `reversivel` (altera o que dá para desfazer e registra como) ou `critico` (prepara ações; o usuário aprova). Comece sempre em `leitura` ou `critico`; `reversivel` só depois de algumas rodadas aprovadas.
+   - **Projeto/produto** a que pertence (vira `projeto:` e a linha `Projeto: [[slug]]` no corpo, ligando o agente à página na wiki).
    - **Horário** (cron) ou só sob demanda/despacho.
    - **Ferramentas**: o que ele precisa executar (consultar um site, uma API, um banco)? Vira um script por ação em `agentes/<nome>/ferramentas/` e um prefixo em `pode_executar` (ex.: `node agentes/<nome>/ferramentas/consultar.js`). Precisa de credencial? (vai para `/etc/cerebro-agentes/<nome>.env`, nunca para o cérebro). Se já existe um produto em `/opt` com deploy próprio, `codigo:` aponta para ele.
    - **Modelo**: sonnet (padrão), haiku (tarefa simples/barata) ou opus (raciocínio pesado).

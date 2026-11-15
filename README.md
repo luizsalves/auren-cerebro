@@ -51,7 +51,7 @@ As suas notas nunca são sobrescritas.
     ├── skills/                 capturar, compilar, revisao-semanal, lint, entrevista, agentes, agente, novo-agente, avaliar, despachar
     ├── hooks/                  inicio.sh, protege.js, salvar.sh
     ├── motor.env               MOTOR=claude|ollama|simulado, modelos, orçamento (fora do git)
-    └── scripts/                lint.js, rotina.sh, guarda-raw.sh, ligar-projetos.sh, rodar-agente.sh, motor.sh, motor-ollama.js, avaliar-agente.sh, agendar-agentes.sh, agentes-lib.js
+    └── scripts/                lint.js, rotina.sh, guarda-raw.sh, ligar-projetos.sh, rodar-agente.sh, motor.sh, motor-ollama.js, avaliar-agente.sh, agendar-agentes.sh, agentes-lib.js, registrar-sessao.sh
 
 /opt/cerebro-painel/            ← painel web (Node, sem dependências)
 /etc/cerebro-painel.env         ← senha e configuração (só root lê)
@@ -100,6 +100,24 @@ especialistas; **especialista** executa dentro de allowlists; **árbitro** (Haik
 rodada sem ver o raciocínio — reprovou, o especialista refaz uma vez, depois vira pendência sua.
 Especialista não chama especialista; ninguém aprova a si mesmo; efeito externo fica "preparado para
 aprovação".
+
+Autonomia por agente (`autonomia:`): `leitura` só relata; `reversivel` altera o que dá para desfazer e
+escreve "## Como reverter" no relatório; `critico` prepara ações (deploy, exclusão, mensagem) e você
+aprova. Toda rodada automática roda isolada com `systemd-run` (sistema de arquivos só leitura; escrita
+só na execução, em `pendencias.md`, em `raw/` e nos caminhos de `escreve_em:`; `/etc/cerebro-agentes`
+inacessível). `rodar-agente.sh --testar-isolamento` confere. Métricas de rodadas (acertos, reprovações,
+custo, tempo, isolamento) em `.claude/agentes/historico.jsonl`; botão **Agentes** no painel e
+`agentes-lib.js desempenho` mostram o quadro.
+
+Vem pronto o **ops-agent** (07:30, autonomia crítica): compara GitHub × VPS × máquina Windows em todos
+os projetos, confere a saúde do cérebro (painel, compilação, raw pendente, disco, crons) e deixa os
+deploys necessários preparados para aprovação. Ferramentas em `agentes/ops-agent/ferramentas/`.
+
+**Conhecimento automático dos projetos:** o instalador registra um hook `SessionEnd` no Claude Code
+(`~/.claude/settings.json`). Ao fechar uma sessão dentro de qualquer projeto em `/opt`, um `raw/` com
+pedido inicial, arquivos editados, commits e resumo entra no cérebro e o `/compilar` leva para a página
+do projeto. O `ligar-projetos.sh` também cria em cada projeto um `CLAUDE.md` (fora do git, via
+`.git/info/exclude`) que importa a página dele no cérebro.
 
 Quem roda é `.claude/scripts/rodar-agente.sh <nome> ["tarefa"]`, o único ponto que fala com o modelo.
 Motor em `.claude/motor.env`: `MOTOR=claude` (login do Claude Code, sem API key), `MOTOR=ollama`

@@ -7,7 +7,7 @@ horario: ""
 codigo: ""
 ferramentas: [Read, Glob, Grep]
 pode_executar: []
-efeitos_externos: nenhum
+autonomia: leitura
 arbitro: false
 max_tentativas: 1
 max_turnos: 10

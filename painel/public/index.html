@@ -101,6 +101,15 @@ kbd{font:11px 'JetBrains Mono',monospace;color:#A3A6BD;border:1px solid rgba(255
 .link i{width:8px;height:8px;border-radius:50%;background:var(--c);box-shadow:0 0 8px var(--c);flex:none}
 .link .ln{flex:1}.link .lw{font:11px 'JetBrains Mono',monospace;color:#9497B0}
 .nada{font-size:13px;color:#9497B0}
+dialog.larga{width:min(980px,calc(100vw - 32px))}
+.agtab{overflow:auto;margin-top:12px;max-height:60vh}
+.agtab table{width:100%;border-collapse:collapse;font:12.5px Inter,sans-serif}
+.agtab th,.agtab td{text-align:left;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.08);white-space:nowrap}
+.agtab th{font:600 11px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#A3A6BD}
+.agtab td.num{text-align:right;font-family:'JetBrains Mono',monospace}
+.agtab .bar{display:inline-block;height:6px;border-radius:3px;background:#6EE7A8;vertical-align:middle;margin-right:6px}
+.agtab .bar.b{background:#FF8A5B}
+.agtab .tot td{border-top:1px solid rgba(255,255,255,.18);font-weight:600}
 dialog{width:min(560px,calc(100vw - 32px));border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:22px;background:#1E1060;color:#E9E9F2}
 dialog::backdrop{background:rgba(8,3,30,.6);backdrop-filter:blur(4px)}
 dialog h3{margin:0 0 4px;font:600 20px 'Space Grotesk',Inter,sans-serif}
@@ -134,6 +143,7 @@ dialog textarea:focus{border-color:#4FD1E8}
       <span><b id="nSin">0</b> sinapses</span>
       <span class="live" id="live"><i></i><span id="liveTxt">Conectando…</span></span>
     </div>
+    <button class="btn ghost" id="btnAgentes" type="button" title="Desempenho dos agentes">Agentes</button>
     <button class="btn" id="btnCapturar" type="button">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
       Capturar
@@ -157,6 +167,17 @@ dialog textarea:focus{border-color:#4FD1E8}
     <aside class="panel" id="panel" aria-label="Nota selecionada" aria-live="polite"></aside>
   </main>
 </div>
+
+<dialog id="dlgAg" class="larga">
+  <form method="dialog">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <h3 style="margin:0">Agentes · desempenho</h3>
+      <span class="mono"><label><input type="radio" name="dias" value="7" checked> 7 dias</label> &nbsp; <label><input type="radio" name="dias" value="30"> 30 dias</label></span>
+    </div>
+    <div id="agTabela" class="agtab"><div class="nada">Carregando…</div></div>
+    <div class="acoes"><button class="btn ghost" value="fechar" type="submit">Fechar</button></div>
+  </form>
+</dialog>
 
 <dialog id="dlg">
   <form method="dialog" id="formCap">
@@ -531,6 +552,37 @@ function conectar() {
   es.addEventListener('deploy', (e) => { let d = {}; try { d = JSON.parse(e.data); } catch {} const box = $('dep'); if (box && box.dataset.slug === d.slug) carregarDeploy(d.slug); });
   es.addEventListener('agente', (e) => { let d = {}; try { d = JSON.parse(e.data); } catch {} const box = $('ag'); if (box && box.dataset.nome === d.nome) carregarAgente(d.nome); });
 }
+
+// ---------- Desempenho dos agentes ----------
+async function carregarMetricas() {
+  const dias = (document.querySelector('#dlgAg input[name=dias]:checked') || {}).value || 7;
+  const box = $('agTabela'); box.innerHTML = '<div class="nada">Carregando…</div>';
+  let ms; try { ms = await (await fetch('/api/agentes/metricas?dias=' + dias)).json(); } catch { box.innerHTML = '<div class="nada">Não consegui ler as métricas.</div>'; return; }
+  if (!ms.length) { box.innerHTML = '<div class="nada">Nenhum agente em agentes/.</div>'; return; }
+  const tot = ms.reduce((a, m) => ({ rodadas: a.rodadas + m.rodadas, ok: a.ok + m.ok, custo: a.custo + m.custo_usd, pend: a.pend + m.pendencias_abertas, rep: a.rep + m.reprovado + m.revisar, fal: a.fal + m.falhou + m.bloqueado }), { rodadas: 0, ok: 0, custo: 0, pend: 0, rep: 0, fal: 0 });
+  const linha = (m) => `<tr>
+    <td><b>${esc(m.nome)}</b><br><span class="mono">${esc(m.papel)} · ${esc(m.status)} · ${esc(m.modelo)}${m.projeto ? ' · ' + esc(m.projeto) : ''}</span></td>
+    <td>${esc(m.autonomia || '')}</td>
+    <td class="num">${m.rodadas}</td>
+    <td>${m.taxa_ok == null ? '—' : `<span class="bar" style="width:${m.taxa_ok * 0.6}px"></span>${m.taxa_ok}%`}</td>
+    <td class="num">${m.reprovado + m.revisar}</td>
+    <td class="num">${m.falhou + m.bloqueado}</td>
+    <td class="num">US$ ${m.custo_usd.toFixed(2)}</td>
+    <td class="num">US$ ${m.custo_medio_usd.toFixed(2)}</td>
+    <td class="num">${m.duracao_media_s}s</td>
+    <td class="num">${m.rodadas ? Math.round((m.isoladas / m.rodadas) * 100) + '%' : '—'}</td>
+    <td class="num">${m.pendencias_abertas ? `<span class="bar b" style="width:${Math.min(60, m.pendencias_abertas * 10)}px"></span>` : ''}${m.pendencias_abertas}</td>
+    <td>${m.avaliacao ? m.avaliacao.media + '/10' : '—'}</td>
+    <td class="mono">${m.ultima ? esc(m.ultima.status + (m.ultima.veredito && m.ultima.veredito !== m.ultima.status ? ' (' + m.ultima.veredito + ')' : '')) + ' · ' + quando(Date.parse(m.ultima.ts)) : 'nunca'}</td>
+  </tr>`;
+  box.innerHTML = `<table>
+    <thead><tr><th>Agente</th><th>Autonomia</th><th>Rodadas</th><th>Acertos</th><th>Reprov.</th><th>Falhas</th><th>Custo</th><th>Média</th><th>Tempo</th><th>Isoladas</th><th>Pend.</th><th>Avaliação</th><th>Última</th></tr></thead>
+    <tbody>${ms.map(linha).join('')}
+    <tr class="tot"><td>Total</td><td></td><td class="num">${tot.rodadas}</td><td>${tot.rodadas ? Math.round((tot.ok / tot.rodadas) * 100) + '%' : '—'}</td><td class="num">${tot.rep}</td><td class="num">${tot.fal}</td><td class="num">US$ ${tot.custo.toFixed(2)}</td><td></td><td></td><td></td><td class="num">${tot.pend}</td><td></td><td></td></tr></tbody></table>
+    <div class="mono" style="margin-top:8px">Acertos = rodadas com status ok no período. Isoladas = rodadas com sandbox de arquivos (systemd-run). Pendências = abertas agora. Clique num agente no grafo para abrir, rodar ou avaliar.</div>`;
+}
+$('btnAgentes').onclick = () => { $('dlgAg').showModal(); carregarMetricas(); };
+document.querySelectorAll('#dlgAg input[name=dias]').forEach((r) => r.addEventListener('change', carregarMetricas));
 
 function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 2600); }
 

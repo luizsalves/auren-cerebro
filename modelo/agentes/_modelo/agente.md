@@ -7,7 +7,9 @@ horario: ""                  # cron de 5 campos, ex.: "0 7 * * 1-5". Vazio = só
 codigo: ferramentas          # código do agente: "ferramentas" (pasta dentro do agente) ou caminho em /opt (produto com deploy próprio)
 ferramentas: [Read, Glob, Grep, Write, Edit, Bash]   # ferramentas do Claude Code liberadas
 pode_executar: []            # únicos comandos liberados no Bash (prefixos), ex.: ["node agentes/<nome>/ferramentas/consultar.js"]
-efeitos_externos: nenhum     # nenhum | preparar | executar-com-aprovacao
+autonomia: leitura           # leitura (só lê e relata) | reversivel (altera o que dá para desfazer e registra como) | critico (prepara; você aprova)
+escreve_em: []               # pastas fora do cérebro onde as ferramentas precisam escrever (no sandbox tudo o mais é só leitura), ex.: ["/opt/projetos/x"]
+projeto: ""                  # página da wiki a que pertence, ex.: geoplanning (vira [[link]] no corpo)
 arbitro: true                # passa pelo árbitro após cada rodada
 max_tentativas: 2            # refaz 1 vez se o árbitro reprovar
 max_turnos: 30               # limite de passos (MOTOR=ollama)
@@ -16,6 +18,8 @@ atualizado: AAAA-MM-DD
 ---
 
 # _modelo
+
+Projeto: [[nome-do-projeto]] <!-- apague a linha se não pertencer a um projeto -->
 
 ## Missão
 <!-- Uma frase: o que este agente garante. Ex.: "Detectar pendências dos clientes da Latec no e-CAC antes do prazo." -->

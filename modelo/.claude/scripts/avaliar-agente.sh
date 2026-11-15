@@ -9,7 +9,7 @@ export PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 LIB="$CEREBRO/.claude/scripts/agentes-lib.js"
 NOME="${1:-}"; [ -n "$NOME" ] || { echo "uso: avaliar-agente.sh <nome>"; exit 1; }
 DIR="agentes/$NOME"; [ -f "$DIR/avaliacao.md" ] || { echo "sem $DIR/avaliacao.md"; exit 1; }
-PODE=()
+PODE=(); ESCREVE_EM=(); AUTONOMIA=leitura
 . "$CEREBRO/.claude/scripts/motor.sh"
 CFG=$(node "$LIB" config "$DIR/agente.md"); MODELO=$(node -e 'console.log(JSON.parse(process.argv[1]).modelo||"")' "$CFG"); [ -n "$MODELO" ] || MODELO="$MODELO_PADRAO"
 CODIGO=$(node -e 'console.log(JSON.parse(process.argv[1]).codigo||"")' "$CFG"); case "$CODIGO" in /*) ;; *) CODIGO="" ;; esac
@@ -78,6 +78,7 @@ MEDIA=$(node -e 'console.log((Number(process.argv[1])/Number(process.argv[2])).t
   printf '%s\n' "$DETALHES"
 } >> "$SAIDA"
 node "$LIB" custo-add "$CUSTO" >/dev/null
+node -e 'console.log(JSON.stringify({ts:new Date().toISOString(),tipo:"avaliacao",agente:process.argv[1],id:process.argv[2],media:Number(process.argv[3]),casos:Number(process.argv[4]),custo_usd:Number(process.argv[5])}))' "$NOME" "$ID" "$MEDIA" "$N" "$CUSTO" >> .claude/agentes/historico.jsonl
 node "$LIB" estado-set "$NOME" "{\"avaliacao\":{\"id\":\"$ID\",\"media\":$MEDIA,\"casos\":$N,\"arquivo\":\"$SAIDA\"}}"
 echo "- $(date +%H:%M) Avaliação de [[${NOME}]]: média $MEDIA/10 em $N casos ($SAIDA)" >> "diario/$(date +%F).md"
 if git rev-parse --verify HEAD >/dev/null 2>&1 && [ -n "$(git status --porcelain)" ]; then

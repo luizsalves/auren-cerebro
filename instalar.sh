@@ -52,7 +52,9 @@ cp "$KIT/modelo/.claude/motor.env.exemplo" "$CEREBRO_DIR/.claude/"
 [ -f "$CEREBRO_DIR/.claude/motor.env" ] || cp "$KIT/modelo/.claude/motor.env.exemplo" "$CEREBRO_DIR/.claude/motor.env"
 # agentes de sistema (orquestrador, árbitro, _modelo) entram se não existirem; os seus nunca são tocados
 mkdir -p "$CEREBRO_DIR/agentes" "$CEREBRO_DIR/.claude/agentes/logs"
-for a in _modelo orquestrador arbitro; do [ -d "$CEREBRO_DIR/agentes/$a" ] || cp -r "$KIT/modelo/agentes/$a" "$CEREBRO_DIR/agentes/"; done
+for a in _modelo orquestrador arbitro ops-agent; do [ -d "$CEREBRO_DIR/agentes/$a" ] || cp -r "$KIT/modelo/agentes/$a" "$CEREBRO_DIR/agentes/"; done
+cp "$KIT/modelo/agentes/ops-agent/ferramentas/"*.sh "$CEREBRO_DIR/agentes/ops-agent/ferramentas/" 2>/dev/null || true   # ferramentas do ops-agent acompanham o kit
+chmod +x "$CEREBRO_DIR"/agentes/*/ferramentas/*.sh 2>/dev/null || true
 cp "$KIT/modelo/agentes/_modelo/agente.md" "$CEREBRO_DIR/agentes/_modelo/agente.md"   # o template acompanha o kit
 chmod +x "$CEREBRO_DIR"/.claude/hooks/* "$CEREBRO_DIR"/.claude/scripts/*
 [ -e "$CEREBRO_DIR/AGENTS.md" ] || ln -s CLAUDE.md "$CEREBRO_DIR/AGENTS.md"
@@ -168,10 +170,23 @@ HOME=/root
 EOF
 chmod 644 /etc/cron.d/cerebro
 verde "compilar 23:30 todo dia · domingo: ligar-projetos 18:30, lint 19:00, revisão 20:00"
-bash "$CEREBRO_DIR/.claude/scripts/agendar-agentes.sh" && verde "agentes agendados em /etc/cron.d/cerebro-agentes (orquestrador de hora em hora)"
+bash "$CEREBRO_DIR/.claude/scripts/agendar-agentes.sh" && verde "agentes agendados em /etc/cron.d/cerebro-agentes (orquestrador de hora em hora, ops-agent 07:30)"
+if bash "$CEREBRO_DIR/.claude/scripts/rodar-agente.sh" --testar-isolamento >/tmp/cerebro-isolamento.txt 2>&1; then verde "isolamento das rodadas OK (systemd-run)"; else amarelo "isolamento das rodadas indisponível: $(tail -n 1 /tmp/cerebro-isolamento.txt). Os agentes rodam sem sandbox de arquivos (ISOLAMENTO=auto)."; fi
 [ -x "$CLAUDE_BIN" ] || amarelo "Claude Code não encontrado. Instale com: curl -fsSL https://claude.ai/install.sh | bash  (e faça login rodando: claude)"
 TZ_ATUAL=$(timedatectl show -p Timezone --value 2>/dev/null || echo "?")
 [ "$TZ_ATUAL" = "America/Sao_Paulo" ] || amarelo "Fuso do servidor: $TZ_ATUAL. Para horário de Brasília: timedatectl set-timezone America/Sao_Paulo"
+
+# ---------- 6b. Hook do Claude Code: sessões em projetos viram raw/ no cérebro ----------
+passo "Hook SessionEnd (conhecimento automático dos projetos)"
+mkdir -p "$HOME/.claude"
+node -e '
+const fs=require("fs");const arq=process.argv[1];const cmd=process.argv[2];
+let s={};try{s=JSON.parse(fs.readFileSync(arq,"utf8"))}catch{}
+s.hooks=s.hooks||{};const lista=s.hooks.SessionEnd=s.hooks.SessionEnd||[];
+const ja=lista.some(g=>(g.hooks||[]).some(h=>String(h.command||"").includes("registrar-sessao.sh")));
+if(!ja)lista.push({hooks:[{type:"command",command:cmd,timeout:60}]});
+fs.writeFileSync(arq,JSON.stringify(s,null,2)+"\n");' "$HOME/.claude/settings.json" "bash $CEREBRO_DIR/.claude/scripts/registrar-sessao.sh" \
+  && verde "hook instalado em $HOME/.claude/settings.json" || amarelo "não consegui gravar o hook em $HOME/.claude/settings.json"
 
 # ---------- 7. Projetos da VPS ----------
 if [ -d /opt/projetos ] || [ -d /opt/saas ]; then

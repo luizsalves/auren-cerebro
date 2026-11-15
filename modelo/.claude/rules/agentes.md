@@ -9,4 +9,5 @@ paths:
 - `execucoes/`: um arquivo por rodada, gravado pelo `rodar-agente.sh`; nunca editar depois de fechada.
 - `conhecimento.md`: uma regra por linha, com data e fonte (`[[run_id]]` ou `[[raw-arquivo]]`). Regra que deixou de valer: risque, não apague.
 - Nada de credenciais, documentos ou dados fiscais de clientes: só status e resumo. Segredos ficam em `/etc/cerebro-agentes/<nome>.env`.
+- `autonomia:` leitura (só relata) · reversivel (altera o desfazível e escreve "## Como reverter" no relatório) · critico (prepara; o usuário aprova). Rodadas automáticas rodam isoladas (systemd-run): sistema só leitura, escrita só em `execucoes/` da rodada, `pendencias.md`, `raw/` e `escreve_em:`.
 - Código do agente fica em `ferramentas/` dentro da pasta dele (só o usuário edita; `node_modules` fora do git). Produto com deploy próprio fica em `/opt/...` e o campo `codigo:` aponta para lá.

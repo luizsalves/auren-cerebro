@@ -7,6 +7,7 @@
 //   agentes-lib.js custo-add <usd>                   → soma ao custo de hoje
 //   agentes-lib.js custo-hoje                        → custo acumulado de hoje (USD)
 //   agentes-lib.js cron                              → linhas de cron dos agentes ativos com horario
+//   agentes-lib.js metricas [dias] | desempenho [dias] → métricas das rodadas (de .claude/agentes/historico.jsonl)
 //   agentes-lib.js resultado <arquivo-json>          → extrai {result,custo,turnos,duracao,erro} do JSON do claude -p
 'use strict';
 const fs = require('fs');
@@ -17,8 +18,9 @@ const ESTADO = path.join(CEREBRO, '.claude', 'agentes', 'estado.json');
 const PADROES = {
   nome: '', papel: 'especialista', status: 'rascunho', modelo: 'sonnet', horario: '', codigo: '',
   ferramentas: ['Read', 'Glob', 'Grep', 'Write', 'Edit', 'Bash'], pode_executar: [],
-  efeitos_externos: 'nenhum', arbitro: true, max_tentativas: 2, max_turnos: 30, orcamento_rodada_usd: 0.5,
+  autonomia: 'leitura', escreve_em: [], projeto: '', arbitro: true, max_tentativas: 2, max_turnos: 30, orcamento_rodada_usd: 0.5,
 };
+const HISTORICO = path.join(CEREBRO, '.claude', 'agentes', 'historico.jsonl');
 
 function semComentario(v) {
   v = v.trim();
@@ -69,6 +71,8 @@ function config(arq) {
   const cfg = { ...PADROES, ...fm };
   if (!Array.isArray(cfg.ferramentas)) cfg.ferramentas = String(cfg.ferramentas).split(',').map((s) => s.trim()).filter(Boolean);
   if (!Array.isArray(cfg.pode_executar)) cfg.pode_executar = cfg.pode_executar ? [String(cfg.pode_executar)] : [];
+  if (!Array.isArray(cfg.escreve_em)) cfg.escreve_em = cfg.escreve_em ? [String(cfg.escreve_em)] : [];
+  if (!['leitura', 'reversivel', 'critico'].includes(cfg.autonomia)) cfg.autonomia = cfg.efeitos_externos === 'nenhum' || !cfg.efeitos_externos ? 'leitura' : 'critico';
   if (!cfg.nome) cfg.nome = path.basename(dir);
   cfg.dir = path.relative(CEREBRO, dir).split(path.sep).join('/');
   // seções do corpo (para o painel e o /agente)
@@ -118,6 +122,39 @@ function tabela() {
   return rod + `\n\nCusto hoje: $${Number(custos[hoje()] || 0).toFixed(2)}`;
 }
 
+function metricas(dias = 7) {
+  const desde = Date.now() - Number(dias) * 86400000;
+  let linhas = [];
+  try { linhas = fs.readFileSync(HISTORICO, 'utf8').split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean); } catch {}
+  const por = {};
+  for (const r of linhas) {
+    if (!r.agente || Date.parse(r.ts) < desde) continue;
+    const m = (por[r.agente] = por[r.agente] || { agente: r.agente, rodadas: 0, ok: 0, reprovado: 0, revisar: 0, falhou: 0, bloqueado: 0, custo_usd: 0, duracao_ms: 0, turnos: 0, isoladas: 0, avaliacoes: [], ultima: null });
+    if (r.tipo === 'avaliacao') { m.avaliacoes.push({ ts: r.ts, media: r.media }); continue; }
+    m.rodadas++; m.custo_usd += Number(r.custo_usd || 0); m.duracao_ms += Number(r.duracao_ms || 0); m.turnos += Number(r.turnos || 0);
+    if (r.isolado) m.isoladas++;
+    if (r.status === 'ok') m.ok++; else if (r.status === 'reprovado') m.reprovado++; else if (r.status === 'revisar') m.revisar++; else if (r.status === 'falhou') m.falhou++; else if (/bloqueado/.test(r.status)) m.bloqueado++;
+    if (!m.ultima || r.ts > m.ultima.ts) m.ultima = { ts: r.ts, status: r.status, veredito: r.veredito, run_id: r.run_id };
+  }
+  const lista = listar();
+  return lista.map((a) => {
+    const m = por[a.nome] || { agente: a.nome, rodadas: 0, ok: 0, reprovado: 0, revisar: 0, falhou: 0, bloqueado: 0, custo_usd: 0, duracao_ms: 0, turnos: 0, isoladas: 0, avaliacoes: [], ultima: null };
+    return { nome: a.nome, papel: a.papel, status: a.status, modelo: a.modelo, horario: a.horario, autonomia: a.autonomia, projeto: a.projeto, pendencias_abertas: a.pendencias_abertas,
+      rodadas: m.rodadas, ok: m.ok, reprovado: m.reprovado, revisar: m.revisar, falhou: m.falhou, bloqueado: m.bloqueado,
+      taxa_ok: m.rodadas ? Math.round((m.ok / m.rodadas) * 100) : null, custo_usd: Number(m.custo_usd.toFixed(4)), custo_medio_usd: m.rodadas ? Number((m.custo_usd / m.rodadas).toFixed(4)) : 0,
+      duracao_media_s: m.rodadas ? Math.round(m.duracao_ms / m.rodadas / 1000) : 0, turnos_medio: m.rodadas ? Math.round(m.turnos / m.rodadas) : 0, isoladas: m.isoladas,
+      ultima: m.ultima, avaliacao: (a.estado && a.estado.avaliacao) || null, avaliacoes_periodo: m.avaliacoes.length, dias: Number(dias) };
+  });
+}
+function desempenho(dias = 7) {
+  const ms = metricas(dias);
+  if (!ms.length) return 'Nenhum agente.';
+  const linhas = [['agente', 'rodadas', 'ok%', 'reprov.', 'falhas', 'custo', 'média', 'tempo', 'pend.', 'avaliação']];
+  for (const m of ms) linhas.push([m.nome, String(m.rodadas), m.taxa_ok == null ? '—' : m.taxa_ok + '%', String(m.reprovado + m.revisar), String(m.falhou + m.bloqueado), '$' + m.custo_usd.toFixed(2), '$' + m.custo_medio_usd.toFixed(2), m.duracao_media_s + 's', String(m.pendencias_abertas), m.avaliacao ? m.avaliacao.media + '/10' : '—']);
+  const larg = linhas[0].map((_, i) => Math.max(...linhas.map((l) => String(l[i]).length)));
+  return `Últimos ${dias} dias\n` + linhas.map((l) => l.map((c, i) => String(c).padEnd(larg[i])).join('  ')).join('\n');
+}
+
 function cron() {
   const linhas = [];
   for (const a of listar()) {
@@ -165,6 +202,8 @@ switch (cmd) {
   }
   case 'custo-hoje': console.log(Number((lerEstado().custos || {})[hoje()] || 0)); break;
   case 'cron': console.log(cron()); break;
+  case 'metricas': console.log(JSON.stringify(metricas(args[0] || 7))); break;
+  case 'desempenho': console.log(desempenho(args[0] || 7)); break;
   case 'resultado': console.log(JSON.stringify(resultado(args[0]))); break;
-  default: console.error('uso: agentes-lib.js config|listar|tabela|estado-set|custo-add|custo-hoje|cron|resultado'); process.exit(1);
+  default: console.error('uso: agentes-lib.js config|listar|tabela|estado-set|custo-add|custo-hoje|cron|resultado|metricas|desempenho'); process.exit(1);
 }
